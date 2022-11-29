@@ -1,5 +1,14 @@
+extern crate core;
+
+mod filters;
+
 use std::collections::HashMap;
+use std::ops::Div;
 use serde::{Deserialize, Serialize};
+use crate::filters::{Root};
+
+//15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
+//监控所有开了永续合约的交易对
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AvgPrice {
@@ -17,25 +26,6 @@ struct Msg {
     content: Text,
 }
 
-/***
-[
-  [
-    1499040000000,      // Kline open time
-    "0.01634790",       // Open price
-    "0.80000000",       // High price
-    "0.01575800",       // Low price
-    "0.01577100",       // Close price
-    "148976.11427815",  // Volume
-    1499644799999,      // Kline Close time
-    "2434.19055334",    // Quote asset volume
-    308,                // Number of trades
-    "1756.87402397",    // Taker buy base asset volume
-    "28.46694368",      // Taker buy quote asset volume
-    "0"                 // Unused field, ignore.
-  ]
-]
- */
-
 #[derive(Debug, Serialize, Deserialize)]
 struct Kline {
     open_time: u64,
@@ -51,15 +41,53 @@ struct Kline {
     taker_buy_quote_asset_volume:String,
     unused_field:String,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RateLimits{
+    rateLimitType: String,
+    interval: String,
+    intervalNum: u8,
+    limit: u32,
+}
+
+
+
+//仅仅使用usdt交易对
+async fn get_all_market(){
+   let line_data = reqwest::get("https://api.binance.com/api/v3/exchangeInfo")
+        .await.unwrap()
+        .json::<Root>()
+        .await.unwrap();
+    let des_market = line_data.symbols
+        .iter()
+        .filter(|x| x.symbol.contains("USDT"))
+        .filter(|x| x.is_margin_trading_allowed == true)
+        .map(|x| x.symbol.clone())
+        .collect::<Vec<String>>();
+    println!("line_data {}", des_market.len());
+}
+
+//binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //https://api.binance.com/api/v3/avgPrice?symbol=BNBUSDT
-    let resp = reqwest::get("https://api.binance.com/api/v3/klines?symbol=BNBUSDT&interval=5m&limit=1")
+    get_all_market().await;
+    panic!("11");
+    let line_data = reqwest::get("https://api.binance.com/api/v3/klines?symbol=BNBUSDT&interval=1h&limit=2")
         .await?
         .json::<Vec<Kline>>()
         .await?;
-    println!("{:#?}", resp);
+    println!("{:#?}", line_data);
 
+    let last_close_price = line_data[0].close_price.parse::<f32>().unwrap();
+    let last_volume =  line_data[0].volume.parse::<f32>().unwrap();
+    let current_price = line_data[1].close_price.parse::<f32>().unwrap();
+    let current_volume =  line_data[1].volume.parse::<f32>().unwrap();
+
+    let increase_ratio = (current_price - last_close_price).div(last_close_price);
+    let increase_volume = (current_volume - last_volume).div(last_volume);
+
+    println!("increase_ratio {},increase_volume {}",increase_ratio,increase_volume);
     let data = Msg{
         msg_type: "text".to_string(),
         content: Text {
@@ -74,6 +102,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .send()
         .await?;
     //send to lark
-    println!("{:#?}", res);
+    println!("{:#?}", res.status());
     Ok(())
 }
