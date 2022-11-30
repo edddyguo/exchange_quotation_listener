@@ -1,3 +1,4 @@
+#![feature(slice_take)]
 extern crate core;
 
 mod filters;
@@ -84,21 +85,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop{
         println!("data_0001 {}",get_unix_timestamp_ms());
         for (index,market) in markets.clone().iter().enumerate() {
-            let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=30m&limit=2",market);
+            let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=30m&limit=5",market);
             let line_data = reqwest::get(kline_url)
                 .await?
                 .json::<Vec<Kline>>()
                 .await?;
             println!("index {},market {}", index,market);
+            //大于前4个总和
+            let recent_klines = line_data.as_slice().take(..4).unwrap();
+            let recent_volume = recent_klines.iter()
+                .map(|x| x.volume.parse::<f32>().unwrap())
+                .sum::<f32>()
+                .div(4.0f32)
+                ;
 
-            let last_close_price = line_data[0].close_price.parse::<f32>().unwrap();
-            let last_volume =  line_data[0].volume.parse::<f32>().unwrap();
-            let current_price = line_data[1].close_price.parse::<f32>().unwrap();
-            let current_volume =  line_data[1].volume.parse::<f32>().unwrap();
+            let recent_price = recent_klines.iter()
+                .map(|x| x.close_price.parse::<f32>().unwrap())
+                .sum::<f32>()
+                .div(4.0f32);
 
-            let increase_price = (current_price - last_close_price).div(last_close_price);
-            let increase_volume = (current_volume - last_volume).div(last_volume);
-            if increase_price > 0.01 && increase_volume > 2.0 {
+            println!("recent_price {} ,recent_volume {}",recent_price,recent_volume);
+
+            //let last_close_price = line_data[0].close_price.parse::<f32>().unwrap();
+            //let last_volume =  line_data[0].volume.parse::<f32>().unwrap();
+            let current_price = line_data[4].close_price.parse::<f32>().unwrap();
+            let current_volume =  line_data[4].volume.parse::<f32>().unwrap();
+
+            let increase_price = (current_price - recent_price).div(recent_price);
+            let increase_volume = (current_volume - recent_volume).div(recent_volume);
+            println!("increase_price {},increase_volume {},current_price {},current_volume {}",increase_price,increase_volume,current_price,current_volume);
+            if increase_price > 0.00001 && increase_volume > 2.0 {
                 let pushed_msg = format!("Find market {}, price increase {},volume increase {}",
                                          market,increase_price,increase_volume
                 );
