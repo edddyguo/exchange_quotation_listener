@@ -2,12 +2,14 @@
 extern crate core;
 
 mod filters;
+mod constant;
 
 use std::collections::HashMap;
 use std::ops::Div;
 use serde::{Deserialize, Serialize};
 use crate::filters::{Root};
 use chrono::prelude::*;
+use crate::constant::PERP_MARKET;
 
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
@@ -65,6 +67,8 @@ async fn get_all_market() -> Vec<String>{
         .iter()
         .filter(|x| x.symbol.contains("USDT"))
         .filter(|x| x.is_margin_trading_allowed == true)
+        //过滤永续
+        //.filter(|x| !x.permissions.iter().find(|&x| x == "TRD_GRP_005").is_some())
         .map(|x| x.symbol.clone())
         .collect::<Vec<String>>();
     println!("line_data {}", des_market.len());
@@ -81,10 +85,12 @@ pub fn get_unix_timestamp_ms() -> i64 {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //https://api.binance.com/api/v3/avgPrice?symbol=BNBUSDT
-    let markets = get_all_market().await;
+    //let markets = get_all_market().await;
+    //let markets = PERP_MARKET;
     loop{
         println!("data_0001 {}",get_unix_timestamp_ms());
-        for (index,market) in markets.clone().iter().enumerate() {
+
+        for (index,&market) in PERP_MARKET.iter().enumerate() {
             let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=30m&limit=5",market);
             let line_data = reqwest::get(kline_url)
                 .await?
@@ -114,7 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let increase_price = (current_price - recent_price).div(recent_price);
             let increase_volume = (current_volume - recent_volume).div(recent_volume);
             println!("increase_price {},increase_volume {},current_price {},current_volume {}",increase_price,increase_volume,current_price,current_volume);
-            if increase_price > 0.00001 && increase_volume > 2.0 {
+            if increase_price > 0.002 && increase_volume > 6.0 {
                 let pushed_msg = format!("Find market {}, price increase {},volume increase {}",
                                          market,increase_price,increase_volume
                 );
