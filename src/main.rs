@@ -80,6 +80,22 @@ pub fn get_unix_timestamp_ms() -> i64 {
     now.timestamp_millis()
 }
 
+async fn try_get(kline_url: String) -> Vec<Kline>{
+    let mut line_data;
+    loop {
+        match  reqwest::get(&kline_url).await {
+            Ok(res) => {
+                line_data = res.json::<Vec<Kline>>().await.unwrap();
+                break;
+            }
+            Err(error) => {
+                println!("Happened error {}",error.to_string())
+            }
+        }
+    }
+    line_data
+}
+
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
 //策略：1h的k线，涨幅百分之1，量增加2倍
 #[tokio::main]
@@ -89,13 +105,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //let markets = PERP_MARKET;
     loop{
         println!("data_0001 {}",get_unix_timestamp_ms());
-
         for (index,&market) in PERP_MARKET.iter().enumerate() {
             let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=30m&limit=5",market);
-            let line_data = reqwest::get(kline_url)
-                .await?
-                .json::<Vec<Kline>>()
-                .await?;
+            let line_data = try_get(kline_url).await;
             println!("index {},market {}", index,market);
             //大于前4个总和
             let recent_klines = line_data.as_slice().take(..4).unwrap();
@@ -120,7 +132,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let increase_price = (current_price - recent_price).div(recent_price);
             let increase_volume = (current_volume - recent_volume).div(recent_volume);
             println!("increase_price {},increase_volume {},current_price {},current_volume {}",increase_price,increase_volume,current_price,current_volume);
-            if increase_price > 0.002 && increase_volume > 6.0 {
+            //listen increase or reduce 1% and 6% volume
+            if (increase_price > 0.01 || increase_price < -0.01)  && increase_volume > 6.0 {
                 let pushed_msg = format!("Find market {}, price increase {},volume increase {}",
                                          market,increase_price,increase_volume
                 );
