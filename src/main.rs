@@ -106,7 +106,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop{
         println!("data_0001 {}",get_unix_timestamp_ms());
         for (index,&market) in PERP_MARKET.iter().enumerate() {
-            let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=30m&limit=5",market);
+            //60分钟的抓大的机会
+            let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=1h&limit=5",market);
             let line_data = try_get(kline_url).await;
             println!("index {},market {}", index,market);
             //大于前4个总和
@@ -132,8 +133,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let increase_price = (current_price - recent_price).div(recent_price);
             let increase_volume = (current_volume - recent_volume).div(recent_volume);
             println!("increase_price {},increase_volume {},current_price {},current_volume {}",increase_price,increase_volume,current_price,current_volume);
-            //listen increase or reduce 1% and 6% volume
-            if (increase_price > 0.01 || increase_price < -0.01)  && increase_volume > 6.0 {
+            //listen increase 1% 6% volume
+            if increase_price > 0.01  && increase_volume > 6.0 {
                 let pushed_msg = format!("Find market {}, price increase {},volume increase {}",
                                          market,increase_price,increase_volume
                 );
@@ -157,6 +158,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         }
         println!("data_0002 {}",get_unix_timestamp_ms());
+        std::thread::sleep(std::time::Duration::from_secs_f32(40.0));
     }
 
 
