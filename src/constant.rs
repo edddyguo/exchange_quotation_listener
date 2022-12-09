@@ -1,4 +1,5 @@
-pub const PERP_MARKET: [&str; 145] = ["BTCUSDT",
+pub const PERP_MARKET: [&str; 145] = [
+    "BTCUSDT",
     "ETHUSDT",
     "BCHUSDT",
     "XRPUSDT",
@@ -142,4 +143,5 @@ pub const PERP_MARKET: [&str; 145] = ["BTCUSDT",
     "CVXUSDT",
     "ICPUSDT",
     "APTUSDT",
-    "QNTUSDT"];
+    "QNTUSDT",
+];
