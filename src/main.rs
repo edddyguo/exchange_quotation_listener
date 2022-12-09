@@ -173,7 +173,7 @@ async fn is_five_increase_times(market: &str) -> bool {
     );
     let line_datas = try_get(kline_url).await;
     for (index, line_data) in line_datas.iter().enumerate() {
-        if line_data.close_price < line_datas[index - 1].close_price {
+        if index > 0 && line_data.close_price < line_datas[index - 1].close_price {
             return false;
         }
     }
