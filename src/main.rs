@@ -98,7 +98,7 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 }
 
 //判断是否是突破形态，根据30分钟k线是否巨量
-async fn is_break_through_market(market: &str) -> bool {
+async fn is_break_through_market(market: &str) -> (f32,f32) {
     let kline_url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval=30m&limit=20",
         market
@@ -135,16 +135,16 @@ async fn is_break_through_market(market: &str) -> bool {
         increase_price, increase_volume, current_price, current_volume
     );
     //listen increase 1% 6% volume
-    if increase_price > 0.01 && increase_volume > 8.0 {
+    /*if increase_price > 0.01 && increase_volume > 8.0 {
         return true;
     } else {
         false
-    }
+    }*/
+    (increase_price,increase_volume)
 }
 
 //推送消息给lark机器人
-async fn notify_lark(market: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let pushed_msg = format!("Find market {}", market);
+async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error>> {
     //println!("increase_ratio {},increase_volume {}",increase_price,increase_volume);
     let data = Msg {
         msg_type: "text".to_string(),
@@ -166,10 +166,10 @@ async fn notify_lark(market: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 //判断是否五连阳
-async fn is_five_increase_times(market: &str) -> bool {
+async fn is_many_increase_times(market: &str, limit: u8) -> bool {
     let kline_url = format!(
-        "https://api.binance.com/api/v3/klines?symbol={}&interval=5m&limit=5",
-        market
+        "https://api.binance.com/api/v3/klines?symbol={}&interval=5m&limit={}",
+        market,limit
     );
     let line_datas = try_get(kline_url).await;
     for (index, line_data) in line_datas.iter().enumerate() {
@@ -191,10 +191,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("data_0001 {}", get_unix_timestamp_ms());
         for (index, &market) in PERP_MARKET.iter().enumerate() {
             println!("index {},market {}", index, market);
-            if is_break_through_market(market).await {
-                if is_five_increase_times(market).await {
-                    notify_lark(market).await?
-                }
+            //根据涨幅和量分为不同的信号强度
+            /***
+                信号级别           条件
+                ***         : 2%价格涨幅 +  8倍交易量  + 5连涨
+                **          :       介于* 和 *** 之间的情况 //todo
+                *           : 1%价格涨幅 +  5倍交易量  + 3连涨
+             */
+            let (increase_price,increase_volume) = is_break_through_market(market).await;
+            if increase_price > 0.02 && increase_volume > 8.0 && is_many_increase_times(market,5).await{
+                    //notify_lark(market).await?
+                let push_text = format!("捕捉到 *** 信号: market {},increase_price {},increase_volume {}",
+                                    market,increase_price,increase_volume
+                );
+                notify_lark(push_text).await?
+            }else if increase_price > 0.01 && increase_volume > 5.0 && is_many_increase_times(market,3).await{
+                let push_text = format!("捕捉到 * 信号: market {},increase_price {},increase_volume {}",
+                                    market,increase_price,increase_volume
+                );
+                notify_lark(push_text).await?
+            }else {
+                println!("Have no obvious break signal");
             }
         }
         println!("data_0002 {}", get_unix_timestamp_ms());
