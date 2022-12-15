@@ -125,7 +125,7 @@ async fn is_break_through_market(market: &str) -> (f32,f32) {
 
     //let last_close_price = line_data[0].close_price.parse::<f32>().unwrap();
     //let last_volume =  line_data[0].volume.parse::<f32>().unwrap();
-    let current_price = line_data[19].close_price.parse::<f32>().unwrap();
+    let current_price = line_data[19].high_price.parse::<f32>().unwrap();
     let current_volume = line_data[19].volume.parse::<f32>().unwrap();
 
     let increase_price = (current_price - recent_price).div(recent_price);
