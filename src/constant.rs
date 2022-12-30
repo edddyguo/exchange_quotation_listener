@@ -1,4 +1,4 @@
-pub const PERP_MARKET: [&str; 145] = [
+pub const PERP_MARKET: [&str; 144] = [
     "BTCUSDT",
     "ETHUSDT",
     "BCHUSDT",
@@ -100,7 +100,6 @@ pub const PERP_MARKET: [&str; 145] = [
     "MTLUSDT",
     "OGNUSDT",
     "NKNUSDT",
-    "SCUSDT",
     "DGBUSDT",
     "BAKEUSDT",
     "GTCUSDT",

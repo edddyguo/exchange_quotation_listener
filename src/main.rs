@@ -86,11 +86,20 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
     loop {
         match reqwest::get(&kline_url).await {
             Ok(res) => {
-                line_data = res.json::<Vec<Kline>>().await.unwrap();
-                break;
+                println!("url {},res {:?}", kline_url,res);
+                match res.json::<Vec<Kline>>().await {
+                    Ok(data) => {
+                        line_data = data;
+                        break;
+                    }
+                    Err(error) => {
+                        panic!("res deserialize happened error {}", error.to_string());
+                    }
+                }
+
             }
             Err(error) => {
-                println!("Happened error {}", error.to_string())
+                println!("reqwest get happened error {}", error.to_string());
             }
         }
     }
@@ -153,7 +162,7 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
     let client = reqwest::Client::new();
     let res = client
         .post(
-            "https://open.larksuite.com/open-apis/bot/v2/hook/56188918-b6b5-4029-9fdf-8a45a86d06a3",
+            "https://open.larksuite.com/open-apis/bot/v2/hook/83874fa0-1316-4cc2-8e88-7f8fd9d5d5e9",
         )
         .json(&data)
         .header("Content-type", "application/json")
@@ -168,12 +177,15 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 //判断是否五连阳
 async fn is_many_increase_times(market: &str, limit: u8) -> bool {
     let kline_url = format!(
-        "https://api.binance.com/api/v3/klines?symbol={}&interval=5m&limit={}",
+        "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
         market,limit
     );
     let line_datas = try_get(kline_url).await;
+    //1分钟k线中拥有五连阳的
     for (index, line_data) in line_datas.iter().enumerate() {
-        if index > 0 && line_data.close_price < line_datas[index - 1].close_price {
+        if (index > 0 && line_data.close_price <= line_datas[index - 1].close_price)
+            || line_data.close_price <= line_data.open_price
+        {
             return false;
         }
     }
@@ -199,13 +211,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 *           : 1%价格涨幅 +  5倍交易量  + 3连涨
              */
             let (increase_price,increase_volume) = is_break_through_market(market).await;
-            if increase_price > 0.02 && increase_volume > 8.0 && is_many_increase_times(market,5).await{
+            if increase_price > 0.02 && increase_volume > 6.0 && is_many_increase_times(market,4).await{
                     //notify_lark(market).await?
                 let push_text = format!("捕捉到 *** 信号: market {},increase_price {},increase_volume {}",
                                     market,increase_price,increase_volume
                 );
                 notify_lark(push_text).await?
-            }else if increase_price > 0.01 && increase_volume > 5.0 && is_many_increase_times(market,3).await{
+            }else if increase_price > 0.01 && increase_volume > 2.0 && is_many_increase_times(market,4).await{
                 let push_text = format!("捕捉到 * 信号: market {},increase_price {},increase_volume {}",
                                     market,increase_price,increase_volume
                 );
@@ -215,7 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         println!("data_0002 {}", get_unix_timestamp_ms());
-        std::thread::sleep(std::time::Duration::from_secs_f32(40.0));
+        std::thread::sleep(std::time::Duration::from_secs_f32(20.0));
     }
     Ok(())
 }
