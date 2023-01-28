@@ -6,6 +6,7 @@ mod filters;
 mod bar;
 mod kline;
 mod account;
+mod utils;
 
 use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL, PERP_MARKET};
 use crate::filters::Root;
@@ -14,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Div;
 use crate::account::get_usdt_balance;
+use crate::utils::get_unix_timestamp_ms;
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -80,10 +82,10 @@ async fn get_all_market() -> Vec<String> {
     des_market
 }
 
-pub fn get_unix_timestamp_ms() -> i64 {
+/*pub fn get_unix_timestamp_ms() -> i64 {
     let now = Utc::now();
     now.timestamp_millis()
-}
+}*/
 
 async fn try_get(kline_url: String) -> Vec<Kline> {
     let mut line_data;

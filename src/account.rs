@@ -6,6 +6,8 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 //use serde_derive::Deserialize;
 //use serde_derive::Serialize;
 use serde::{Deserialize, Serialize};
+use crate::constant::{BNB_API_KEY, RECV_WINDOW};
+use crate::get_unix_timestamp_ms;
 
 
 pub type Balances = Vec<Balance>;
@@ -26,26 +28,24 @@ pub struct Balance {
 
 pub async fn get_usdt_balance() -> f32 {
     let mut headers = HeaderMap::new();
-    println!("000___{:?}", headers);
-    //headers.insert(HeaderName::from_static("x-api-key"), HeaderValue::from_static("123-123-123"));
-    //println!("111___{:?}",headers);
-    headers.insert(HeaderName::from_static("x-mbx-apikey"), HeaderValue::from_static("HHjYprQmyfp7JWqChuNiNyd32JEtD16M10mL9LhnU79fq38Wk75NU3rzu9m0KyTq"));
-    println!("222___{:?}", headers);
-
+    headers.insert(HeaderName::from_static("x-mbx-apikey"), HeaderValue::from_static(BNB_API_KEY));
+    //todo: 对get的参数进行签名
+    let signature = "1def85bc5e6ef11fe8b1da73a05aa123c5d4e83d8a0025db9e9a5d0db1237fce";
+    let url = format!("https://fapi.binance.com/fapi/v2/balance?recvWindow={}&timestamp={}&signature={}",
+    RECV_WINDOW,get_unix_timestamp_ms(),signature);
     //todo: 1、签名 2、curl -H
     let client = reqwest::Client::new();
-    let line_data = client.get(
-        "https://fapi.binance.com/fapi/v2/balance?recvWindow=500000000&timestamp=1674871881000&signature=1def85bc5e6ef11fe8b1da73a05aa123c5d4e83d8a0025db9e9a5d0db1237fce"
-    ).headers(headers)
+    let line_data = client.get(url)
+        .headers(headers)
         .send()
         .await
         .unwrap()
         .json::<Balances>()
         .await
         .unwrap();
-    let balance_value = line_data.iter().map(|x| x.balance.parse::<f32>().unwrap()).collect::<Vec<f32>>();
-    println!("{:?}", balance_value.iter().sum::<f32>());
-    balance_value.iter().sum::<f32>()
+    let balance_value = line_data.iter().map(|x| x.balance.parse::<f32>().unwrap()).sum::<f32>();
+    println!("{:?}", balance_value);
+    balance_value
 }
 
 #[cfg(test)]
