@@ -3,6 +3,9 @@ extern crate core;
 
 mod constant;
 mod filters;
+mod bar;
+mod kline;
+mod account;
 
 use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL, PERP_MARKET};
 use crate::filters::Root;
@@ -10,6 +13,7 @@ use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Div;
+use crate::account::get_usdt_balance;
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -164,7 +168,7 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
     let res = client
         .post(
             //"https://open.larksuite.com/open-apis/bot/v2/hook/83874fa0-1316-4cc2-8e88-7f8fd9d5d5e9",
-            "https://open.larksuite.com/open-apis/bot/v2/hook/35e0e750-7e57-4670-9d37-7f1a8bba35c3",
+            "https://open.larksuite.com/open-apis/bot/v2/hook/38692ffa-9b47-4289-b254-cc4cfc5df048",
         )
         .json(&data)
         .header("Content-type", "application/json")
