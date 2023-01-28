@@ -1,4 +1,21 @@
-pub const PERP_MARKET: [&str; 144] = [
+//scheme1(vcs18):   202201207 - 20230107
+//优势能找到的标的基本符合诉求，但是会有大量的信号漏掉，主要是短期二次爆发的和一些小的爆发
+/*pub const BROKEN_UP_INTERVALS : u8 = 30;//15 minutes
+pub const KLINE_NUM_FOR_FIND_SIGNAL: usize = 20;
+pub const INCREASE_PRICE_LEVEL1 : f32 = 0.001;
+pub const INCREASE_PRICE_LEVEL2 : f32 = 0.002;
+pub const INCREASE_VOLUME_LEVEL1 : f32 = 2.0;
+pub const INCREASE_VOLUME_LEVEL2 : f32 = 6.0;*/
+
+
+pub const BROKEN_UP_INTERVALS : u8 = 5;//15 minutes
+pub const KLINE_NUM_FOR_FIND_SIGNAL: usize = 20;
+pub const INCREASE_PRICE_LEVEL1 : f32 = 0.003;
+pub const INCREASE_PRICE_LEVEL2 : f32 = 0.006;
+pub const INCREASE_VOLUME_LEVEL1 : f32 = 7.0;
+pub const INCREASE_VOLUME_LEVEL2 : f32 = 15.0;
+
+pub const PERP_MARKET: [&str; 142] = [
     "BTCUSDT",
     "ETHUSDT",
     "BCHUSDT",
@@ -47,7 +64,7 @@ pub const PERP_MARKET: [&str; 144] = [
     "SUSHIUSDT",
     "SRMUSDT",
     "EGLDUSDT",
-    "SOLUSDT",
+    //"SOLUSDT",
     "ICXUSDT",
     "STORJUSDT",
     "BLZUSDT",
@@ -106,7 +123,6 @@ pub const PERP_MARKET: [&str; 144] = [
     "TLMUSDT",
     "IOTXUSDT",
     "AUDIOUSDT",
-    "RAYUSDT",
     "C98USDT",
     "MASKUSDT",
     "ATAUSDT",

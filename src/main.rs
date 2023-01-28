@@ -4,7 +4,7 @@ extern crate core;
 mod constant;
 mod filters;
 
-use crate::constant::PERP_MARKET;
+use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL, PERP_MARKET};
 use crate::filters::Root;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -109,23 +109,24 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 //判断是否是突破形态，根据30分钟k线是否巨量
 async fn is_break_through_market(market: &str) -> (f32,f32) {
     let kline_url = format!(
-        "https://api.binance.com/api/v3/klines?symbol={}&interval=30m&limit=20",
-        market
+        "https://api.binance.com/api/v3/klines?symbol={}&interval={}m&limit={}",
+        market,BROKEN_UP_INTERVALS,KLINE_NUM_FOR_FIND_SIGNAL
     );
     let line_data = try_get(kline_url).await;
+    let recent_lines_num = KLINE_NUM_FOR_FIND_SIGNAL -1;
     //大于前4个总和
-    let recent_klines = line_data.as_slice().take(..19).unwrap();
+    let recent_klines = line_data.as_slice().take(..recent_lines_num).unwrap();
     let recent_volume = recent_klines
         .iter()
         .map(|x| x.volume.parse::<f32>().unwrap())
         .sum::<f32>()
-        .div(19.0f32);
+        .div(recent_lines_num as f32);
 
     let recent_price = recent_klines
         .iter()
         .map(|x| x.close_price.parse::<f32>().unwrap())
         .sum::<f32>()
-        .div(19.0f32);
+        .div(recent_lines_num as f32);
 
     println!(
         "recent_price {} ,recent_volume {}",
@@ -162,7 +163,8 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
     let client = reqwest::Client::new();
     let res = client
         .post(
-            "https://open.larksuite.com/open-apis/bot/v2/hook/83874fa0-1316-4cc2-8e88-7f8fd9d5d5e9",
+            //"https://open.larksuite.com/open-apis/bot/v2/hook/83874fa0-1316-4cc2-8e88-7f8fd9d5d5e9",
+            "https://open.larksuite.com/open-apis/bot/v2/hook/35e0e750-7e57-4670-9d37-7f1a8bba35c3",
         )
         .json(&data)
         .header("Content-type", "application/json")
@@ -211,13 +213,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 *           : 1%价格涨幅 +  5倍交易量  + 3连涨
              */
             let (increase_price,increase_volume) = is_break_through_market(market).await;
-            if increase_price > 0.02 && increase_volume > 6.0 && is_many_increase_times(market,4).await{
+            if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2 && is_many_increase_times(market,4).await{
                     //notify_lark(market).await?
                 let push_text = format!("捕捉到 *** 信号: market {},increase_price {},increase_volume {}",
                                     market,increase_price,increase_volume
                 );
                 notify_lark(push_text).await?
-            }else if increase_price > 0.01 && increase_volume > 2.0 && is_many_increase_times(market,4).await{
+            }else if increase_price > INCREASE_PRICE_LEVEL1 && increase_volume > INCREASE_VOLUME_LEVEL1 && is_many_increase_times(market,3).await{
                 let push_text = format!("捕捉到 * 信号: market {},increase_price {},increase_volume {}",
                                     market,increase_price,increase_volume
                 );
