@@ -8,6 +8,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use crate::constant::{BNB_API_KEY, RECV_WINDOW};
 use crate::get_unix_timestamp_ms;
+use crate::utils::hmac_sha256_sign;
 
 
 pub type Balances = Vec<Balance>;
@@ -30,9 +31,9 @@ pub async fn get_usdt_balance() -> f32 {
     let mut headers = HeaderMap::new();
     headers.insert(HeaderName::from_static("x-mbx-apikey"), HeaderValue::from_static(BNB_API_KEY));
     //todo: 对get的参数进行签名
-    let signature = "1def85bc5e6ef11fe8b1da73a05aa123c5d4e83d8a0025db9e9a5d0db1237fce";
-    let url = format!("https://fapi.binance.com/fapi/v2/balance?recvWindow={}&timestamp={}&signature={}",
-    RECV_WINDOW,get_unix_timestamp_ms(),signature);
+    let request_parameter = format!("recvWindow={}&timestamp={}",RECV_WINDOW,get_unix_timestamp_ms());
+    let signature = hmac_sha256_sign(&request_parameter);
+    let url = format!("https://fapi.binance.com/fapi/v2/balance?{}&signature={}", request_parameter,signature);
     //todo: 1、签名 2、curl -H
     let client = reqwest::Client::new();
     let line_data = client.get(url)
