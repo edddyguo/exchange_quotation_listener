@@ -12,6 +12,10 @@ pub trait MathOperation {
     fn to_fix(&self, precision: u32) -> f32;
 }
 
+pub trait MathOperation2 {
+    fn to_f32(&self) -> f32;
+}
+
 impl MathOperation for f32 {
     /// Keep decimal significant digits
     fn to_fix(&self, precision: u32) -> f32 {
@@ -23,6 +27,12 @@ impl MathOperation for f32 {
     }
 }
 
+impl MathOperation2 for String {
+    /// Keep decimal significant digits
+    fn to_f32(&self) -> f32 {
+        self.parse::<f32>().unwrap()
+    }
+}
 
 ///
 pub fn get_unix_timestamp_ms() -> i64 {

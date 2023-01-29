@@ -15,10 +15,13 @@ use crate::filters::Root;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ops::Div;
+use std::ops::{Div, Mul};
 use crate::account::get_usdt_balance;
+use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score};
 use crate::ex_info::list_all_pair;
-use crate::utils::get_unix_timestamp_ms;
+use crate::kline::{get_current_price, recent_kline_shape_score};
+use crate::order::take_order;
+use crate::utils::{get_unix_timestamp_ms, MathOperation};
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -40,8 +43,8 @@ struct Msg {
     content: Text,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Kline {
+#[derive(Debug, Serialize, Deserialize,Clone)]
+pub struct Kline {
     open_time: u64,
     open_price: String,
     high_price: String,
@@ -199,17 +202,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let market = pair.symbol.as_str();
             println!("index {},market {}", index, market);
             let (increase_price,increase_volume) = is_break_through_market(market).await;
-            if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2 && is_many_increase_times(market,4).await{
-                    //notify_lark(market).await?
-                let push_text = format!("捕捉到 *** 信号: market {},increase_price {},increase_volume {}",
-                                    market,increase_price,increase_volume
-                );
-                notify_lark(push_text).await?
-            }else if increase_price > INCREASE_PRICE_LEVEL1 && increase_volume > INCREASE_VOLUME_LEVEL1 && is_many_increase_times(market,3).await{
-                let push_text = format!("捕捉到 * 信号: market {},increase_price {},increase_volume {}",
-                                    market,increase_price,increase_volume
-                );
-                notify_lark(push_text).await?
+            if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2{
+                let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=20", market);
+                let line_datas = try_get(kline_url).await;
+
+                let shape_score = get_last_bar_shape_score(line_datas.clone());
+                let volume_score = get_last_bar_volume_score(line_datas.clone());
+                let recent_shape_score = recent_kline_shape_score(line_datas[8..=17].to_vec());
+
+                if shape_score >= 4 && volume_score>=3 && recent_shape_score>=3 {
+                    let balance = get_usdt_balance().await;
+                    let price = line_datas[19].close_price.parse::<f32>().unwrap();
+                    //default lever ratio is 20x
+                    let taker_amount = balance
+                        .mul(20.0)
+                        .div(10.0)
+                        .div(price)
+                        .to_fix(pair.quantity_precision as u32);
+                    take_order(market.to_string(),taker_amount).await;
+
+                    let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {}",
+                                            market,shape_score,volume_score,recent_shape_score
+                    );
+                    notify_lark(push_text).await?
+                }
+
             }else {
                 println!("Have no obvious break signal");
             }

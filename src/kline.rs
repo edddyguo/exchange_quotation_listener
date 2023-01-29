@@ -6,6 +6,7 @@
 
 use serde::Deserialize;
 use serde::Serialize;
+use crate::{Kline, try_get};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +29,21 @@ pub async  fn get_current_price(symbol: &str) -> f32{
         .unwrap();
     println!("get_current_price result {:?}",res);
     res.price.parse::<f32>().unwrap()
+}
+
+//根据之前10根的k线情况给分
+pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
+    assert_eq!(bars.len(),10,"must be 10 item");
+    let mut score = 0.0f32;
+    //1分钟k线中拥有五连阳的
+    for (index, line_data) in bars.iter().enumerate() {
+        if (index > 0 && line_data.close_price <= bars[index - 1].close_price)
+            || line_data.close_price <= line_data.open_price
+        {
+            score += 0.5;
+        }
+    }
+    score.floor() as u8
 }
 
 #[cfg(test)]
