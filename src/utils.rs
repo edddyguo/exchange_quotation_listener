@@ -3,8 +3,25 @@ use chrono::Utc;
 use sha2::Sha256;
 use hmac::{Hmac, Mac};
 //use hex_literal::hex;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 type HmacSha256 = Hmac<Sha256>;
+
+pub trait MathOperation {
+    fn to_fix(&self, precision: u32) -> f32;
+}
+
+impl MathOperation for f32 {
+    /// Keep decimal significant digits
+    fn to_fix(&self, precision: u32) -> f32 {
+        let times = 10_u32.pow(precision);
+        let number = self * times as f32;
+        let real_number = number.round();
+        let decimal_number = Decimal::new(real_number as i64, precision);
+        decimal_number.to_f32().unwrap()
+    }
+}
 
 
 ///

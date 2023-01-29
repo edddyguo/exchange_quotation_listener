@@ -10,13 +10,14 @@ mod utils;
 mod order;
 mod ex_info;
 
-use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL, PERP_MARKET};
+use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL};
 use crate::filters::Root;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Div;
 use crate::account::get_usdt_balance;
+use crate::ex_info::list_all_pair;
 use crate::utils::get_unix_timestamp_ms;
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
@@ -63,31 +64,7 @@ struct RateLimits {
     limit: u32,
 }
 
-//仅仅使用usdt交易对
-async fn get_all_market() -> Vec<String> {
-    let line_data = reqwest::get("https://api.binance.com/api/v3/exchangeInfo")
-        .await
-        .unwrap()
-        .json::<Root>()
-        .await
-        .unwrap();
-    let des_market = line_data
-        .symbols
-        .iter()
-        .filter(|x| x.symbol.contains("USDT"))
-        .filter(|x| x.is_margin_trading_allowed == true)
-        //过滤永续
-        //.filter(|x| !x.permissions.iter().find(|&x| x == "TRD_GRP_005").is_some())
-        .map(|x| x.symbol.clone())
-        .collect::<Vec<String>>();
-    println!("line_data {}", des_market.len());
-    des_market
-}
 
-/*pub fn get_unix_timestamp_ms() -> i64 {
-    let now = Utc::now();
-    now.timestamp_millis()
-}*/
 
 async fn try_get(kline_url: String) -> Vec<Kline> {
     let mut line_data;
@@ -211,8 +188,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //let markets = PERP_MARKET;
     loop {
         println!("data_0001 {}", get_unix_timestamp_ms());
-        for (index, &market) in PERP_MARKET.iter().enumerate() {
-            println!("index {},market {}", index, market);
+        for (index,pair) in list_all_pair().await.into_iter().enumerate() {
             //根据涨幅和量分为不同的信号强度
             /***
                 信号级别           条件
@@ -220,6 +196,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 **          :       介于* 和 *** 之间的情况 //todo
                 *           : 1%价格涨幅 +  5倍交易量  + 3连涨
              */
+            let market = pair.symbol.as_str();
+            println!("index {},market {}", index, market);
             let (increase_price,increase_volume) = is_break_through_market(market).await;
             if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2 && is_many_increase_times(market,4).await{
                     //notify_lark(market).await?

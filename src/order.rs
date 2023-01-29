@@ -2,7 +2,7 @@ use hmac::digest::core_api::TruncSide;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use crate::constant::{BNB_API_KEY, RECV_WINDOW};
 use crate::get_unix_timestamp_ms;
-use crate::utils::hmac_sha256_sign;
+use crate::utils::{hmac_sha256_sign};
 
 ///taker order or cancel
 ///
@@ -23,7 +23,7 @@ pub async fn take_order(symbol: String,amount:f32){
     let request_parameter = format!("symbol={}&side=SELL&type=MARKET&quantity={}&recvWindow={}&timestamp={}",symbol,amount,RECV_WINDOW,get_unix_timestamp_ms());
     let signature = hmac_sha256_sign(&request_parameter);
     //https://fapi.binance.com/fapi/v1/order
-    let url = format!("https://fapi.binance.com/fapi/v1/order?{}&signature={}", request_parameter,signature);
+    let url = format!("https://fapi.binance.com/fapi/v1/order/test?{}&signature={}", request_parameter,signature);
 
     let client = reqwest::Client::new();
     let res = client.post(url)
@@ -38,16 +38,18 @@ pub async fn take_order(symbol: String,amount:f32){
 #[cfg(test)]
 mod tests {
     use std::ops::{Div, Mul};
-    use crate::get_usdt_balance;
+    use crate::{get_usdt_balance};
     use crate::kline::get_current_price;
     use crate::order::{Side, take_order};
+    use crate::utils::MathOperation;
 
     #[tokio::test]
     async fn test_take_order() {
+        let preicision = 1;
         let balance = get_usdt_balance().await;
         let price = get_current_price("RLCUSDT").await;
         //default lever ratio is 20x
-        let taker_amount = balance.mul(20.0).div(20.0).div(price);
+        let taker_amount = balance.mul(20.0).div(20.0).div(price).to_fix(1);
         println!("amount {}",taker_amount);
         take_order("RLCUSDT".to_string(), taker_amount).await;
     }
