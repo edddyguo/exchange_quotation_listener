@@ -8,6 +8,7 @@ mod kline;
 mod account;
 mod utils;
 mod order;
+mod ex_info;
 
 use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL, PERP_MARKET};
 use crate::filters::Root;

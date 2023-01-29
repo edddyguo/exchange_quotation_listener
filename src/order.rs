@@ -37,13 +37,18 @@ pub async fn take_order(symbol: String,amount:f32){
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Div;
+    use std::ops::{Div, Mul};
     use crate::get_usdt_balance;
+    use crate::kline::get_current_price;
     use crate::order::{Side, take_order};
 
     #[tokio::test]
     async fn test_take_order() {
-        let amount = get_usdt_balance().await.div(20.0f32);
-        take_order("RLCUSDT".to_string(), 5.0).await;
+        let balance = get_usdt_balance().await;
+        let price = get_current_price("RLCUSDT").await;
+        //default lever ratio is 20x
+        let taker_amount = balance.mul(20.0).div(20.0).div(price);
+        println!("amount {}",taker_amount);
+        take_order("RLCUSDT".to_string(), taker_amount).await;
     }
 }
