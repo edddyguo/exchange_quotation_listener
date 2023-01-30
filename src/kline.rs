@@ -37,10 +37,11 @@ pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
     let mut score = 0.0f32;
     //1分钟k线中拥有五连阳的
     for (index, line_data) in bars.iter().enumerate() {
-        if (index > 0 && line_data.close_price <= bars[index - 1].close_price)
-            || line_data.close_price <= line_data.open_price
+        //if (index > 0 && line_data.close_price <= bars[index - 1].close_price)
+        //    || line_data.close_price <= line_data.open_price
+        if line_data.close_price > line_data.open_price
         {
-            score += 0.5;
+            score += 1.0;
         }
     }
     score.floor() as u8

@@ -21,7 +21,7 @@ use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score};
 use crate::ex_info::list_all_pair;
 use crate::kline::{get_current_price, recent_kline_shape_score};
 use crate::order::take_order;
-use crate::utils::{get_unix_timestamp_ms, MathOperation};
+use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2};
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -95,15 +95,24 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 }
 
 //判断是否是突破形态，根据30分钟k线是否巨量
-async fn is_break_through_market(market: &str) -> (f32,f32) {
+async fn is_break_through_market(market: &str) -> bool {
     let kline_url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval={}m&limit={}",
         market,BROKEN_UP_INTERVALS,KLINE_NUM_FOR_FIND_SIGNAL
     );
     let line_data = try_get(kline_url).await;
-    let recent_lines_num = KLINE_NUM_FOR_FIND_SIGNAL -1;
-    //大于前4个总和
-    let recent_klines = line_data.as_slice().take(..recent_lines_num).unwrap();
+    println!("test1 start {} - end {}",line_data[0].open_time,line_data[34].open_time);
+    //当前是20-10-5的分布：20个作为平常参考，9个作为过度，5个作为突破信号判断
+    //突破信号，最近五个中有4个大于五倍就行。
+    let recent_lines_num = 20;
+    let recent_klines = &line_data[0..=19];
+    //9..=13
+    let broken_klines = &line_data[29..=33];
+    assert_eq!(recent_klines.len(),20);
+    assert_eq!(broken_klines.len(),5);
+    println!("recent_klines volume opentime {},start {},end {}",recent_klines[0].open_time,recent_klines[0].volume,recent_klines[19].volume);
+    println!("broken_klines volume opentime {},start {},end{}",broken_klines[0].open_time,broken_klines[0].volume,broken_klines[4].volume);
+
     let recent_volume = recent_klines
         .iter()
         .map(|x| x.volume.parse::<f32>().unwrap())
@@ -116,29 +125,29 @@ async fn is_break_through_market(market: &str) -> (f32,f32) {
         .sum::<f32>()
         .div(recent_lines_num as f32);
 
-    println!(
-        "recent_price {} ,recent_volume {}",
-        recent_price, recent_volume
-    );
-
-    //let last_close_price = line_data[0].close_price.parse::<f32>().unwrap();
-    //let last_volume =  line_data[0].volume.parse::<f32>().unwrap();
-    let current_price = line_data[19].high_price.parse::<f32>().unwrap();
-    let current_volume = line_data[19].volume.parse::<f32>().unwrap();
-
+    //价格以当前的计算就行
+    let current_price = line_data[KLINE_NUM_FOR_FIND_SIGNAL - 1].high_price.to_f32();
     let increase_price = (current_price - recent_price).div(recent_price);
-    let increase_volume = (current_volume - recent_volume).div(recent_volume);
-    println!(
-        "increase_price {},increase_volume {},current_price {},current_volume {}",
-        increase_price, increase_volume, current_price, current_volume
-    );
-    //listen increase 1% 6% volume
-    /*if increase_price > 0.01 && increase_volume > 8.0 {
-        return true;
-    } else {
-        false
-    }*/
-    (increase_price,increase_volume)
+
+    println!("market {} increase_price {}", market,increase_price);
+    if increase_price < INCREASE_PRICE_LEVEL2 {
+        return false
+    }
+    //交易量要大部分bar都符合要求
+    let mut huge_volume_bars_num = 0;
+    for broken_kline in broken_klines {
+        let increase_volume = (broken_kline.volume.to_f32() - recent_volume).div(recent_volume);
+        println!("market {} increase_volume {}", market,increase_volume);
+        if increase_volume > INCREASE_VOLUME_LEVEL2 {
+            huge_volume_bars_num += 1;
+        }
+    }
+
+    //暂时最近五个三个巨量就行
+    if huge_volume_bars_num <= 3 {
+        return false;
+    }
+    true
 }
 
 //推送消息给lark机器人
@@ -189,9 +198,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //https://api.binance.com/api/v3/avgPrice?symbol=BNBUSDT
     //let markets = get_all_market().await;
     //let markets = PERP_MARKET;
+    let all_pairs = list_all_pair().await;
     loop {
         println!("data_0001 {}", get_unix_timestamp_ms());
-        for (index,pair) in list_all_pair().await.into_iter().enumerate() {
+        for (index,pair) in all_pairs.clone().into_iter().enumerate() {
             //根据涨幅和量分为不同的信号强度
             /***
                 信号级别           条件
@@ -201,19 +211,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
              */
             let market = pair.symbol.as_str();
             println!("index {},market {}", index, market);
-            let (increase_price,increase_volume) = is_break_through_market(market).await;
-            if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2{
-                let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=20", market);
+            //let (increase_price,increase_volume) = is_break_through_market(market).await;
+           // if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2{
+             if is_break_through_market(market).await {
+                 println!("Found break signal");
+                 let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=20", market);
                 let line_datas = try_get(kline_url).await;
-
                 let shape_score = get_last_bar_shape_score(line_datas.clone());
                 let volume_score = get_last_bar_volume_score(line_datas.clone());
                 let recent_shape_score = recent_kline_shape_score(line_datas[8..=17].to_vec());
 
-                if shape_score >= 4 && volume_score>=3 && recent_shape_score>=3 {
-                    let balance = get_usdt_balance().await;
+                //if shape_score >= 4 && volume_score>=3 && recent_shape_score>=3 {
+                 if shape_score >= 4 && volume_score>=3 && recent_shape_score>=7 {
+                     let balance = get_usdt_balance().await;
                     let price = line_datas[19].close_price.parse::<f32>().unwrap();
-                    //default lever ratio is 20x
+                    //default lever ratio is 20x,每次1成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
                         .div(10.0)
@@ -225,7 +237,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             market,shape_score,volume_score,recent_shape_score,taker_amount
                     );
                     notify_lark(push_text).await?
-                }
+                }else {
+                     println!("Have no take order signal,\
+                     below is detail score:market {},shape_score {},volume_score {},recent_shape_score {}",
+                              market,shape_score,volume_score,recent_shape_score
+                     );
+                 }
 
             }else {
                 println!("Have no obvious break signal");
