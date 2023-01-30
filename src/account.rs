@@ -45,7 +45,7 @@ pub async fn get_usdt_balance() -> f32 {
         .await
         .unwrap();
     let balance_value = line_data.iter().map(|x| x.balance.parse::<f32>().unwrap()).sum::<f32>();
-    println!("{:?}", balance_value);
+    //println!("{:?}", balance_value);
     balance_value
 }
 

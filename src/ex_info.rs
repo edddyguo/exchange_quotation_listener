@@ -92,12 +92,17 @@ pub async  fn list_all_pair() -> Vec<Symbol>{
         .await
         .unwrap();
     let symbols = res.symbols;
-    println!("list_all_pair result {:#?}",symbols);
+    //println!("list_all_pair result {:#?}",symbols);
 
     let pairs = symbols.iter()
         .filter(|x| !x.symbol.contains("BUSD"))
         .filter(|x| !x.symbol.contains("1000"))
         .filter(|x| !x.symbol.contains("331"))
+        .filter(|x| !x.symbol.contains( "DEFI"))
+        .filter(|x| !x.symbol.contains( "BTCDOM"))
+        .filter(|x| !x.symbol.contains( "FOOTBALL"))
+        .filter(|x| !x.symbol.contains( "LUNA2"))
+        .filter(|x| !x.symbol.contains( "BLUEBIRDUSDT"))
         .filter(|x| x.status == "TRADING")
         .map(|x| x.to_owned())
         .collect::<Vec<Symbol>>();

@@ -74,7 +74,7 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
     loop {
         match reqwest::get(&kline_url).await {
             Ok(res) => {
-                println!("url {},res {:?}", kline_url,res);
+                //println!("url {},res {:?}", kline_url,res);
                 match res.json::<Vec<Kline>>().await {
                     Ok(data) => {
                         line_data = data;
@@ -221,8 +221,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .to_fix(pair.quantity_precision as u32);
                     take_order(market.to_string(),taker_amount).await;
 
-                    let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {}",
-                                            market,shape_score,volume_score,recent_shape_score
+                    let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                            market,shape_score,volume_score,recent_shape_score,taker_amount
                     );
                     notify_lark(push_text).await?
                 }

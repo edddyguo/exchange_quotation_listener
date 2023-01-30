@@ -27,7 +27,7 @@ pub async  fn get_current_price(symbol: &str) -> f32{
         .json::<Price>()
         .await
         .unwrap();
-    println!("get_current_price result {:?}",res);
+    //println!("get_current_price result {:?}",res);
     res.price.parse::<f32>().unwrap()
 }
 
