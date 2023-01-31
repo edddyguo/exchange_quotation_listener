@@ -75,13 +75,15 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
         match reqwest::get(&kline_url).await {
             Ok(res) => {
                 //println!("url {},res {:?}", kline_url,res);
+                let res_str = format!("{:?}",res);
                 match res.json::<Vec<Kline>>().await {
                     Ok(data) => {
                         line_data = data;
                         break;
                     }
                     Err(error) => {
-                        panic!("res deserialize happened error {}", error.to_string());
+                        //println!("reqwest res string: {:?}",res_str);
+                        println!("res deserialize happened error {},and raw res {}", error.to_string(),res_str);
                     }
                 }
 
@@ -103,15 +105,16 @@ async fn is_break_through_market(market: &str) -> bool {
     let line_data = try_get(kline_url).await;
     println!("test1 start {} - end {}",line_data[0].open_time,line_data[34].open_time);
     //当前是20-10-5的分布：20个作为平常参考，9个作为过度，5个作为突破信号判断
+    //方案2：80-30-10
     //突破信号，最近五个中有4个大于五倍就行。
-    let recent_lines_num = 20;
-    let recent_klines = &line_data[0..=19];
+    let recent_klines = &line_data[0..=79];
+    let recent_lines_num = recent_klines.len();
     //9..=13
-    let broken_klines = &line_data[29..=33];
-    assert_eq!(recent_klines.len(),20);
-    assert_eq!(broken_klines.len(),5);
-    println!("recent_klines volume opentime {},start {},end {}",recent_klines[0].open_time,recent_klines[0].volume,recent_klines[19].volume);
-    println!("broken_klines volume opentime {},start {},end{}",broken_klines[0].open_time,broken_klines[0].volume,broken_klines[4].volume);
+    let broken_klines = &line_data[109..=118];
+    assert_eq!(recent_klines.len(),80);
+    assert_eq!(broken_klines.len(),10);
+    //println!("recent_klines volume opentime {},start {},end {}",recent_klines[0].open_time,recent_klines[0].volume,recent_klines[19].volume);
+    //println!("broken_klines volume opentime {},start {},end{}",broken_klines[0].open_time,broken_klines[0].volume,broken_klines[4].volume);
 
     let recent_volume = recent_klines
         .iter()
@@ -137,14 +140,15 @@ async fn is_break_through_market(market: &str) -> bool {
     let mut huge_volume_bars_num = 0;
     for broken_kline in broken_klines {
         let increase_volume = (broken_kline.volume.to_f32() - recent_volume).div(recent_volume);
-        println!("market {} increase_volume {}", market,increase_volume);
+        //println!("market {} increase_volume {}", market,increase_volume);
         if increase_volume > INCREASE_VOLUME_LEVEL2 {
             huge_volume_bars_num += 1;
         }
     }
 
     //暂时最近五个三个巨量就行
-    if huge_volume_bars_num <= 3 {
+    //暂时最近十个六个巨量就行
+    if huge_volume_bars_num <= 5 {
         return false;
     }
     true
@@ -222,9 +226,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let recent_shape_score = recent_kline_shape_score(line_datas[8..=17].to_vec());
 
                 //if shape_score >= 4 && volume_score>=3 && recent_shape_score>=3 {
-                 if shape_score >= 4 && volume_score>=3 && recent_shape_score>=7 {
+                 if shape_score >= 3 && volume_score>=3 && recent_shape_score>=7 {
                      let balance = get_usdt_balance().await;
-                    let price = line_datas[19].close_price.parse::<f32>().unwrap();
+                    let price = line_datas.last().unwrap().close_price.parse::<f32>().unwrap();
                     //default lever ratio is 20x,每次1成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
@@ -249,7 +253,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         println!("data_0002 {}", get_unix_timestamp_ms());
-        std::thread::sleep(std::time::Duration::from_secs_f32(20.0));
+        std::thread::sleep(std::time::Duration::from_secs_f32(40.0));
     }
     Ok(())
 }
