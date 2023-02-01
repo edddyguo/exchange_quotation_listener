@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::ops::{Div, Mul};
 use crate::account::get_usdt_balance;
 use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score};
-use crate::ex_info::list_all_pair;
+use crate::ex_info::{list_all_pair, Symbol};
 use crate::kline::{get_current_price, recent_kline_shape_score};
 use crate::order::take_order;
 use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2};
@@ -203,16 +203,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //let markets = get_all_market().await;
     //let markets = PERP_MARKET;
     let all_pairs = list_all_pair().await;
+    //symbol,take time,
+    let mut take_order_pair : HashMap<String,i64> = HashMap::new();
     loop {
         println!("data_0001 {}", get_unix_timestamp_ms());
         for (index,pair) in all_pairs.clone().into_iter().enumerate() {
-            //根据涨幅和量分为不同的信号强度
-            /***
-                信号级别           条件
-                ***         : 2%价格涨幅 +  8倍交易量  + 5连涨
-                **          :       介于* 和 *** 之间的情况 //todo
-                *           : 1%价格涨幅 +  5倍交易量  + 3连涨
-             */
+            //20分钟内不允许再次下单
+            match take_order_pair.get(pair.symbol.as_str()) {
+                None => {}
+                Some(take_time) => {
+                    if get_unix_timestamp_ms() - take_time < 1200000 {
+                        continue;
+                    }else {
+                        take_order_pair.remove(pair.symbol.as_str());
+                    }
+                }
+            }
             let market = pair.symbol.as_str();
             println!("index {},market {}", index, market);
             //let (increase_price,increase_volume) = is_break_through_market(market).await;
@@ -232,12 +238,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     //default lever ratio is 20x,每次1成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
-                        .div(10.0)
+                        .div(20.0)
                         .div(price)
                         .to_fix(pair.quantity_precision as u32);
                     take_order(market.to_string(),taker_amount).await;
-
-                    let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                     take_order_pair.insert(market.to_string(),get_unix_timestamp_ms());
+                     let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                             market,shape_score,volume_score,recent_shape_score,taker_amount
                     );
                     notify_lark(push_text).await?
@@ -253,6 +259,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         println!("data_0002 {}", get_unix_timestamp_ms());
+        //保证1分钟只下单一次
         std::thread::sleep(std::time::Duration::from_secs_f32(40.0));
     }
     Ok(())
