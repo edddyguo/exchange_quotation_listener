@@ -229,7 +229,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let line_datas = try_get(kline_url).await;
                 let shape_score = get_last_bar_shape_score(line_datas.clone());
                 let volume_score = get_last_bar_volume_score(line_datas.clone());
-                let recent_shape_score = recent_kline_shape_score(line_datas[8..=17].to_vec());
+                 //8-17。多一个作为价格比较的基准
+                let recent_shape_score = recent_kline_shape_score(line_datas[7..=17].to_vec());
 
                 //if shape_score >= 4 && volume_score>=3 && recent_shape_score>=3 {
                  if shape_score >= 3 && volume_score>=3 && recent_shape_score>=7 {

@@ -39,7 +39,7 @@ pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
     for (index, line_data) in bars.iter().enumerate() {
         //if (index > 0 && line_data.close_price <= bars[index - 1].close_price)
         //    || line_data.close_price <= line_data.open_price
-        if line_data.close_price > line_data.open_price
+        if line_data.close_price >= line_data.open_price && line_data.close_price >= bars[index - 1].close_price
         {
             score += 1.0;
         }
