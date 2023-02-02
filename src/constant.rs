@@ -7,7 +7,8 @@ pub const INCREASE_PRICE_LEVEL2 : f32 = 0.002;
 pub const INCREASE_VOLUME_LEVEL1 : f32 = 2.0;
 pub const INCREASE_VOLUME_LEVEL2 : f32 = 6.0;*/
 
-pub const BNB_API_KEY: &'static str = "HHjYprQmyfp7JWqChuNiNyd32JEtD16M10mL9LhnU79fq38Wk75NU3rzu9m0KyTq";
+pub const BNB_API_KEY: &'static str =
+    "HHjYprQmyfp7JWqChuNiNyd32JEtD16M10mL9LhnU79fq38Wk75NU3rzu9m0KyTq";
 pub const RECV_WINDOW: u16 = 50000;
 pub const BROKEN_UP_INTERVALS: u8 = 1;
 //15 minutes

@@ -80,11 +80,12 @@ pub struct Filter {
 // proxychains4 curl -X GET "https://fapi.binance.com/fapi/v1/exchangeInfo" |
 // jq | grep "symbol\"" | grep -v "BUSD\|331\|1000" | wc -l
 //剔除100相关的合约
-pub async  fn list_all_pair() -> Vec<Symbol>{
+pub async fn list_all_pair() -> Vec<Symbol> {
     let url = format!("https://fapi.binance.com/fapi/v1/exchangeInfo");
 
     let client = reqwest::Client::new();
-    let res = client.get(url)
+    let res = client
+        .get(url)
         .send()
         .await
         .unwrap()
@@ -94,19 +95,20 @@ pub async  fn list_all_pair() -> Vec<Symbol>{
     let symbols = res.symbols;
     //println!("list_all_pair result {:#?}",symbols);
 
-    let pairs = symbols.iter()
+    let pairs = symbols
+        .iter()
         .filter(|x| !x.symbol.contains("BUSD"))
         .filter(|x| !x.symbol.contains("1000"))
         .filter(|x| !x.symbol.contains("331"))
-        .filter(|x| !x.symbol.contains( "DEFI"))
-        .filter(|x| !x.symbol.contains( "BTCDOM"))
-        .filter(|x| !x.symbol.contains( "FOOTBALL"))
-        .filter(|x| !x.symbol.contains( "LUNA2"))
-        .filter(|x| !x.symbol.contains( "BLUEBIRDUSDT"))
+        .filter(|x| !x.symbol.contains("DEFI"))
+        .filter(|x| !x.symbol.contains("BTCDOM"))
+        .filter(|x| !x.symbol.contains("FOOTBALL"))
+        .filter(|x| !x.symbol.contains("LUNA2"))
+        .filter(|x| !x.symbol.contains("BLUEBIRDUSDT"))
         .filter(|x| x.status == "TRADING")
         .map(|x| x.to_owned())
         .collect::<Vec<Symbol>>();
-    println!("list_all_pair result {:?}",pairs.len());
+    println!("list_all_pair result {:?}", pairs.len());
     pairs
 }
 

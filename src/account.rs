@@ -1,3 +1,6 @@
+use crate::constant::{BNB_API_KEY, RECV_WINDOW};
+use crate::get_unix_timestamp_ms;
+use crate::utils::hmac_sha256_sign;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 ///获取u本位账号基本信息（可用余额）
 ///
@@ -6,10 +9,6 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 //use serde_derive::Deserialize;
 //use serde_derive::Serialize;
 use serde::{Deserialize, Serialize};
-use crate::constant::{BNB_API_KEY, RECV_WINDOW};
-use crate::get_unix_timestamp_ms;
-use crate::utils::hmac_sha256_sign;
-
 
 pub type Balances = Vec<Balance>;
 
@@ -29,14 +28,25 @@ pub struct Balance {
 
 pub async fn get_usdt_balance() -> f32 {
     let mut headers = HeaderMap::new();
-    headers.insert(HeaderName::from_static("x-mbx-apikey"), HeaderValue::from_static(BNB_API_KEY));
+    headers.insert(
+        HeaderName::from_static("x-mbx-apikey"),
+        HeaderValue::from_static(BNB_API_KEY),
+    );
     //todo: 对get的参数进行签名
-    let request_parameter = format!("recvWindow={}&timestamp={}",RECV_WINDOW,get_unix_timestamp_ms());
+    let request_parameter = format!(
+        "recvWindow={}&timestamp={}",
+        RECV_WINDOW,
+        get_unix_timestamp_ms()
+    );
     let signature = hmac_sha256_sign(&request_parameter);
-    let url = format!("https://fapi.binance.com/fapi/v2/balance?{}&signature={}", request_parameter,signature);
+    let url = format!(
+        "https://fapi.binance.com/fapi/v2/balance?{}&signature={}",
+        request_parameter, signature
+    );
     //todo: 1、签名 2、curl -H
     let client = reqwest::Client::new();
-    let line_data = client.get(url)
+    let line_data = client
+        .get(url)
         .headers(headers)
         .send()
         .await
@@ -44,7 +54,10 @@ pub async fn get_usdt_balance() -> f32 {
         .json::<Balances>()
         .await
         .unwrap();
-    let balance_value = line_data.iter().map(|x| x.available_balance.parse::<f32>().unwrap()).sum::<f32>();
+    let balance_value = line_data
+        .iter()
+        .map(|x| x.available_balance.parse::<f32>().unwrap())
+        .sum::<f32>();
     //println!("{:?}", balance_value);
     balance_value
 }

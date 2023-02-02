@@ -1,27 +1,30 @@
 #![feature(slice_take)]
 extern crate core;
 
-mod constant;
-mod filters;
-mod bar;
-mod kline;
 mod account;
-mod utils;
-mod order;
+mod bar;
+mod constant;
 mod ex_info;
+mod filters;
+mod kline;
+mod order;
+mod utils;
 
-use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL};
+use crate::account::get_usdt_balance;
+use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score};
+use crate::constant::{
+    BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1,
+    INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
+};
+use crate::ex_info::{list_all_pair, Symbol};
 use crate::filters::Root;
+use crate::kline::{get_current_price, recent_kline_shape_score};
+use crate::order::take_order;
+use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2};
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::{Div, Mul};
-use crate::account::get_usdt_balance;
-use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score};
-use crate::ex_info::{list_all_pair, Symbol};
-use crate::kline::{get_current_price, recent_kline_shape_score};
-use crate::order::take_order;
-use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2};
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -43,7 +46,7 @@ struct Msg {
     content: Text,
 }
 
-#[derive(Debug, Serialize, Deserialize,Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Kline {
     open_time: u64,
     open_price: String,
@@ -67,15 +70,13 @@ struct RateLimits {
     limit: u32,
 }
 
-
-
 async fn try_get(kline_url: String) -> Vec<Kline> {
     let mut line_data;
     loop {
         match reqwest::get(&kline_url).await {
             Ok(res) => {
                 //println!("url {},res {:?}", kline_url,res);
-                let res_str = format!("{:?}",res);
+                let res_str = format!("{:?}", res);
                 match res.json::<Vec<Kline>>().await {
                     Ok(data) => {
                         line_data = data;
@@ -83,10 +84,13 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
                     }
                     Err(error) => {
                         //println!("reqwest res string: {:?}",res_str);
-                        println!("res deserialize happened error {},and raw res {}", error.to_string(),res_str);
+                        println!(
+                            "res deserialize happened error {},and raw res {}",
+                            error.to_string(),
+                            res_str
+                        );
                     }
                 }
-
             }
             Err(error) => {
                 println!("reqwest get happened error {}", error.to_string());
@@ -100,10 +104,13 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 async fn is_break_through_market(market: &str) -> bool {
     let kline_url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval={}m&limit={}",
-        market,BROKEN_UP_INTERVALS,KLINE_NUM_FOR_FIND_SIGNAL
+        market, BROKEN_UP_INTERVALS, KLINE_NUM_FOR_FIND_SIGNAL
     );
     let line_data = try_get(kline_url).await;
-    println!("test1 start {} - end {}",line_data[0].open_time,line_data[34].open_time);
+    println!(
+        "test1 start {} - end {}",
+        line_data[0].open_time, line_data[34].open_time
+    );
     //当前是20-10-5的分布：20个作为平常参考，9个作为过度，5个作为突破信号判断
     //方案2：80-30-10
     //突破信号，最近五个中有4个大于五倍就行。
@@ -111,8 +118,8 @@ async fn is_break_through_market(market: &str) -> bool {
     let recent_lines_num = recent_klines.len();
     //9..=13
     let broken_klines = &line_data[109..=118];
-    assert_eq!(recent_klines.len(),80);
-    assert_eq!(broken_klines.len(),10);
+    assert_eq!(recent_klines.len(), 80);
+    assert_eq!(broken_klines.len(), 10);
     //println!("recent_klines volume opentime {},start {},end {}",recent_klines[0].open_time,recent_klines[0].volume,recent_klines[19].volume);
     //println!("broken_klines volume opentime {},start {},end{}",broken_klines[0].open_time,broken_klines[0].volume,broken_klines[4].volume);
 
@@ -132,9 +139,9 @@ async fn is_break_through_market(market: &str) -> bool {
     let current_price = line_data[KLINE_NUM_FOR_FIND_SIGNAL - 1].high_price.to_f32();
     let increase_price = (current_price - recent_price).div(recent_price);
 
-    println!("market {} increase_price {}", market,increase_price);
+    println!("market {} increase_price {}", market, increase_price);
     if increase_price < INCREASE_PRICE_LEVEL2 {
-        return false
+        return false;
     }
     //交易量要大部分bar都符合要求
     let mut huge_volume_bars_num = 0;
@@ -181,7 +188,7 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 async fn is_many_increase_times(market: &str, limit: u8) -> bool {
     let kline_url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
-        market,limit
+        market, limit
     );
     let line_datas = try_get(kline_url).await;
     //1分钟k线中拥有五连阳的
@@ -204,10 +211,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //let markets = PERP_MARKET;
     let all_pairs = list_all_pair().await;
     //symbol -> order time,price,amount
-    let mut take_order_pair : HashMap<String,(i64,f32,f32)> = HashMap::new();
+    let mut take_order_pair: HashMap<String, (i64, f32, f32)> = HashMap::new();
     loop {
         println!("data_0001 {}", get_unix_timestamp_ms());
-        for (index,pair) in all_pairs.clone().into_iter().enumerate() {
+        for (index, pair) in all_pairs.clone().into_iter().enumerate() {
             //20分钟内不允许再次下单
             //todo：增加止损的逻辑,20点就止损
             //todo: 目前人工维护已下单数据，后期考虑链上获取
@@ -217,53 +224,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(take_info) => {
                     if current_price / take_info.1 > 1.2 {
                         //taker_order
-                        take_order(pair.symbol.clone(),take_info.2,"BUY".to_string()).await;
+                        take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
                         let push_text = format!("强平单: market {}", pair.symbol);
                         notify_lark(push_text).await?;
-                    } else if get_unix_timestamp_ms() - take_info.0 < 1200000{
+                    } else if get_unix_timestamp_ms() - take_info.0 < 1200000 {
                         continue;
-                    }else {
+                    } else {
                     }
                 }
             }
             let market = pair.symbol.as_str();
             println!("index {},market {}", index, market);
             //let (increase_price,increase_volume) = is_break_through_market(market).await;
-           // if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2{
-             if is_break_through_market(market).await {
-                 println!("Found break signal");
-                 let kline_url = format!("https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=20", market);
+            // if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2{
+            if is_break_through_market(market).await {
+                println!("Found break signal");
+                let kline_url = format!(
+                    "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=20",
+                    market
+                );
                 let line_datas = try_get(kline_url).await;
                 let shape_score = get_last_bar_shape_score(line_datas.clone());
                 let volume_score = get_last_bar_volume_score(line_datas.clone());
-                 //8-17。多一个作为价格比较的基准
+                //8-17。多一个作为价格比较的基准
                 let recent_shape_score = recent_kline_shape_score(line_datas[7..=17].to_vec());
 
                 //总分分别是：7分，5分，10分
-                 if shape_score >= 4 && volume_score>=3 && recent_shape_score>=7 {
-                     let balance = get_usdt_balance().await;
-                    let price = line_datas.last().unwrap().close_price.parse::<f32>().unwrap();
+                if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 7 {
+                    let balance = get_usdt_balance().await;
+                    let price = line_datas
+                        .last()
+                        .unwrap()
+                        .close_price
+                        .parse::<f32>()
+                        .unwrap();
                     //default lever ratio is 20x,每次1成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
                         .div(10.0)
                         .div(price)
                         .to_fix(pair.quantity_precision as u32);
-                    take_order(market.to_string(),taker_amount,"SELL".to_string()).await;
-                     take_order_pair.insert(market.to_string(),(get_unix_timestamp_ms(),price,taker_amount));
-                     let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                    take_order(market.to_string(), taker_amount, "SELL".to_string()).await;
+                    take_order_pair.insert(
+                        market.to_string(),
+                        (get_unix_timestamp_ms(), price, taker_amount),
+                    );
+                    let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                             market,shape_score,volume_score,recent_shape_score,taker_amount
                     );
                     notify_lark(push_text).await?
-                }else {
-                     println!("Have no take order signal,\
+                } else {
+                    println!("Have no take order signal,\
                      below is detail score:market {},shape_score {},volume_score {},recent_shape_score {}",
                               market,shape_score,volume_score,recent_shape_score
                      );
-                 }
-
-            }else {
+                }
+            } else {
                 println!("Have no obvious break signal");
             }
         }
