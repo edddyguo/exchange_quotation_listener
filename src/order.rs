@@ -34,7 +34,7 @@ pub async fn take_order(symbol: String, amount: f32, side: String) {
     let signature = hmac_sha256_sign(&request_parameter);
     //https://fapi.binance.com/fapi/v1/order
     let url = format!(
-        "https://fapi.binance.com/fapi/v1/order/test?{}&signature={}",
+        "https://fapi.binance.com/fapi/v1/order?{}&signature={}",
         request_parameter, signature
     );
 
