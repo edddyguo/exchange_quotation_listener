@@ -222,11 +222,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match take_order_pair.get(pair.symbol.as_str()) {
                 None => {}
                 Some(take_info) => {
-                    if current_price / take_info.1 > 1.2 {
+                    let price_raise_ratio = current_price / take_info.1;
+                    //20X情况下：止损40个点止盈100个点
+                    if price_raise_ratio > 1.02 || price_raise_ratio < 0.95{
                         //taker_order
                         take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
-                        let push_text = format!("强平单: market {}", pair.symbol);
+                        let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol,price_raise_ratio);
                         notify_lark(push_text).await?;
                     } else if get_unix_timestamp_ms() - take_info.0 < 1200000 {
                         continue;
