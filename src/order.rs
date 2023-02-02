@@ -16,11 +16,11 @@ pub enum Side {
 }
 
 // todo:暂时只考虑空单市场价成交，后续可丰富
-pub async fn take_order(symbol: String,amount:f32){
+pub async fn take_order(symbol: String,amount:f32,side:String){
     let mut headers = HeaderMap::new();
     headers.insert(HeaderName::from_static("x-mbx-apikey"), HeaderValue::from_static(BNB_API_KEY));
 
-    let request_parameter = format!("symbol={}&side=SELL&type=MARKET&quantity={}&recvWindow={}&timestamp={}",symbol,amount,RECV_WINDOW,get_unix_timestamp_ms());
+    let request_parameter = format!("symbol={}&side={},&type=MARKET&quantity={}&recvWindow={}&timestamp={}",symbol,side,amount,RECV_WINDOW,get_unix_timestamp_ms());
     let signature = hmac_sha256_sign(&request_parameter);
     //https://fapi.binance.com/fapi/v1/order
     let url = format!("https://fapi.binance.com/fapi/v1/order/test?{}&signature={}", request_parameter,signature);

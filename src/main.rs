@@ -203,19 +203,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //let markets = get_all_market().await;
     //let markets = PERP_MARKET;
     let all_pairs = list_all_pair().await;
-    //symbol,take time,
-    let mut take_order_pair : HashMap<String,i64> = HashMap::new();
+    //symbol -> order time,price,amount
+    let mut take_order_pair : HashMap<String,(i64,f32,f32)> = HashMap::new();
     loop {
         println!("data_0001 {}", get_unix_timestamp_ms());
         for (index,pair) in all_pairs.clone().into_iter().enumerate() {
             //20分钟内不允许再次下单
+            //todo：增加止损的逻辑,20点就止损
+            //todo: 目前人工维护已下单数据，后期考虑链上获取
+            let current_price = get_current_price(pair.symbol.as_str()).await;
             match take_order_pair.get(pair.symbol.as_str()) {
                 None => {}
-                Some(take_time) => {
-                    if get_unix_timestamp_ms() - take_time < 1200000 {
+                Some(take_info) => {
+                    if current_price / take_info.1 > 1.2 {
+                        //taker_order
+                        take_order(pair.symbol.clone(),take_info.2,"BUY".to_string()).await;
+                        take_order_pair.remove(pair.symbol.as_str());
+                        let push_text = format!("强平单: market {}", pair.symbol);
+                        notify_lark(push_text).await?;
+                    } else if get_unix_timestamp_ms() - take_info.0 < 1200000{
                         continue;
                     }else {
-                        take_order_pair.remove(pair.symbol.as_str());
                     }
                 }
             }
@@ -239,11 +247,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     //default lever ratio is 20x,每次1成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
-                        .div(20.0)
+                        .div(10.0)
                         .div(price)
                         .to_fix(pair.quantity_precision as u32);
-                    take_order(market.to_string(),taker_amount).await;
-                     take_order_pair.insert(market.to_string(),get_unix_timestamp_ms());
+                    take_order(market.to_string(),taker_amount,"SELL".to_string()).await;
+                     take_order_pair.insert(market.to_string(),(get_unix_timestamp_ms(),price,taker_amount));
                      let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                             market,shape_score,volume_score,recent_shape_score,taker_amount
                     );
