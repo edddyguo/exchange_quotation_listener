@@ -33,13 +33,13 @@ pub async  fn get_current_price(symbol: &str) -> f32{
 
 //根据之前10根的k线情况给分
 pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
-    assert_eq!(bars.len(),10,"must be 10 item");
+    assert_eq!(bars.len(),11,"must be 10 item");
     let mut score = 0.0f32;
     //1分钟k线中拥有五连阳的
     for (index, line_data) in bars.iter().enumerate() {
         //if (index > 0 && line_data.close_price <= bars[index - 1].close_price)
         //    || line_data.close_price <= line_data.open_price
-        if line_data.close_price >= line_data.open_price && line_data.close_price >= bars[index - 1].close_price
+        if index > 0 && line_data.close_price >= line_data.open_price && line_data.close_price >= bars[index - 1].close_price
         {
             score += 1.0;
         }

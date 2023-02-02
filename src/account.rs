@@ -44,7 +44,7 @@ pub async fn get_usdt_balance() -> f32 {
         .json::<Balances>()
         .await
         .unwrap();
-    let balance_value = line_data.iter().map(|x| x.balance.parse::<f32>().unwrap()).sum::<f32>();
+    let balance_value = line_data.iter().map(|x| x.available_balance.parse::<f32>().unwrap()).sum::<f32>();
     //println!("{:?}", balance_value);
     balance_value
 }

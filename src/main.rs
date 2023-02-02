@@ -232,8 +232,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                  //8-17。多一个作为价格比较的基准
                 let recent_shape_score = recent_kline_shape_score(line_datas[7..=17].to_vec());
 
-                //if shape_score >= 4 && volume_score>=3 && recent_shape_score>=3 {
-                 if shape_score >= 3 && volume_score>=3 && recent_shape_score>=7 {
+                //总分分别是：7分，5分，10分
+                 if shape_score >= 4 && volume_score>=3 && recent_shape_score>=7 {
                      let balance = get_usdt_balance().await;
                     let price = line_datas.last().unwrap().close_price.parse::<f32>().unwrap();
                     //default lever ratio is 20x,每次1成仓位20倍
