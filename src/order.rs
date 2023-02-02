@@ -24,7 +24,7 @@ pub async fn take_order(symbol: String, amount: f32, side: String) {
     );
 
     let request_parameter = format!(
-        "symbol={}&side={},&type=MARKET&quantity={}&recvWindow={}&timestamp={}",
+        "symbol={}&side={}&type=MARKET&quantity={}&recvWindow={}&timestamp={}",
         symbol,
         side,
         amount,
@@ -58,8 +58,8 @@ mod tests {
         let balance = get_usdt_balance().await;
         let price = get_current_price("RLCUSDT").await;
         //default lever ratio is 20x
-        let taker_amount = balance.mul(20.0).div(20.0).div(price).to_fix(1);
+        let taker_amount = balance.mul(20.0).div(10.0).div(price).to_fix(1);
         println!("amount {}", taker_amount);
-        take_order("RLCUSDT".to_string(), taker_amount).await;
+        take_order("RLCUSDT".to_string(), taker_amount,"SELL".to_string()).await;
     }
 }
