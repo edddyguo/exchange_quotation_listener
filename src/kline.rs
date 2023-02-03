@@ -13,23 +13,46 @@ pub struct Price {
     pub time: i64,
 }
 
+async fn try_get2(kline_url: String) -> Price{
+    let mut line_data;
+    loop {
+        match reqwest::get(&kline_url).await {
+            Ok(res) => {
+                //println!("url {},res {:?}", kline_url,res);
+                let res_str = format!("{:?}", res);
+                match res.json::<Price>().await {
+                    Ok(data) => {
+                        line_data = data;
+                        break;
+                    }
+                    Err(error) => {
+                        //println!("reqwest res string: {:?}",res_str);
+                        println!(
+                            "res deserialize happened error {},and raw res {}",
+                            error.to_string(),
+                            res_str
+                        );
+                    }
+                }
+            }
+            Err(error) => {
+                println!("reqwest get happened error {}", error.to_string());
+            }
+        }
+    }
+    line_data
+}
+
 pub async fn get_current_price(symbol: &str) -> f32 {
     let url = format!(
         "https://fapi.binance.com/fapi/v1/ticker/price?symbol={}",
         symbol
     );
-
-    let client = reqwest::Client::new();
-    let res = client
-        .get(url)
-        .send()
-        .await
-        .unwrap()
-        .json::<Price>()
-        .await
-        .unwrap();
+    let price_info = try_get2(url).await;
     //println!("get_current_price result {:?}",res);
-    res.price.parse::<f32>().unwrap()
+    //let line_datas = try_get(kline_url).await;
+
+    price_info.price.parse::<f32>().unwrap()
 }
 
 //根据之前10根的k线情况给分

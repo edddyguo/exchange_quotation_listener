@@ -1,5 +1,7 @@
 #![feature(slice_take)]
 extern crate core;
+#[macro_use]
+extern crate log;
 
 mod account;
 mod bar;
@@ -9,7 +11,6 @@ mod filters;
 mod kline;
 mod order;
 mod utils;
-
 use crate::account::get_usdt_balance;
 use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score};
 use crate::constant::{
@@ -25,6 +26,8 @@ use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::{Div, Mul};
+use log::{debug, error, log_enabled, info, Level};
+
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -69,7 +72,7 @@ struct RateLimits {
     intervalNum: u8,
     limit: u32,
 }
-
+//todo: 不只是kline，用泛型弄
 async fn try_get(kline_url: String) -> Vec<Kline> {
     let mut line_data;
     loop {
@@ -84,7 +87,7 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
                     }
                     Err(error) => {
                         //println!("reqwest res string: {:?}",res_str);
-                        println!(
+                        warn!(
                             "res deserialize happened error {},and raw res {}",
                             error.to_string(),
                             res_str
@@ -93,7 +96,7 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
                 }
             }
             Err(error) => {
-                println!("reqwest get happened error {}", error.to_string());
+                warn!("reqwest get happened error {}", error.to_string());
             }
         }
     }
@@ -113,15 +116,17 @@ async fn is_break_through_market(market: &str) -> bool {
     );
     //当前是20-10-5的分布：20个作为平常参考，9个作为过度，5个作为突破信号判断
     //方案2：80-30-10
-    //突破信号，最近五个中有4个大于五倍就行。
-    let recent_klines = &line_data[0..=79];
-    let recent_lines_num = recent_klines.len();
+    //选81个，后边再剔除量最大的
+    let mut recent_klines = line_data[0..=79+1].to_owned();
     //9..=13
     let broken_klines = &line_data[109..=118];
     assert_eq!(recent_klines.len(), 80);
     assert_eq!(broken_klines.len(), 10);
     //println!("recent_klines volume opentime {},start {},end {}",recent_klines[0].open_time,recent_klines[0].volume,recent_klines[19].volume);
     //println!("broken_klines volume opentime {},start {},end{}",broken_klines[0].open_time,broken_klines[0].volume,broken_klines[4].volume);
+    recent_klines.sort_by(|a,b| a.volume.to_f32().partial_cmp(&b.volume.to_f32()).unwrap());
+    let recent_klines = &recent_klines[0..=79];
+    let recent_lines_num = recent_klines.len();
 
     let recent_volume = recent_klines
         .iter()
@@ -209,11 +214,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //https://api.binance.com/api/v3/avgPrice?symbol=BNBUSDT
     //let markets = get_all_market().await;
     //let markets = PERP_MARKET;
+    env_logger::init();
     let all_pairs = list_all_pair().await;
     //symbol -> order time,price,amount
     let mut take_order_pair: HashMap<String, (i64, f32, f32)> = HashMap::new();
     loop {
-        println!("data_0001 {}", get_unix_timestamp_ms());
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
             //20分钟内不允许再次下单
             //todo：增加止损的逻辑,20点就止损
@@ -223,8 +228,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None => {}
                 Some(take_info) => {
                     let price_raise_ratio = current_price / take_info.1;
-                    //20X情况下：止损40个点止盈100个点
-                    if price_raise_ratio > 1.02 || price_raise_ratio < 0.95{
+                    //20X情况下：30个点止损，60个点止盈
+                    if price_raise_ratio > 1.015 || price_raise_ratio < 0.97{
                         //taker_order
                         take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
@@ -238,8 +243,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             let market = pair.symbol.as_str();
             println!("index {},market {}", index, market);
-            //let (increase_price,increase_volume) = is_break_through_market(market).await;
-            // if increase_price > INCREASE_PRICE_LEVEL2 && increase_volume > INCREASE_VOLUME_LEVEL2{
             if is_break_through_market(market).await {
                 println!("Found break signal");
                 let kline_url = format!(
@@ -277,18 +280,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
                     notify_lark(push_text).await?
                 } else {
-                    println!("Have no take order signal,\
+                    info!("Have no take order signal,\
                      below is detail score:market {},shape_score {},volume_score {},recent_shape_score {}",
                               market,shape_score,volume_score,recent_shape_score
                      );
                 }
             } else {
-                println!("Have no obvious break signal");
+                info!("Have no obvious break signal");
             }
         }
-        println!("data_0002 {}", get_unix_timestamp_ms());
+        info!("complete listen all pairs");
         //保证1分钟只下单一次
-        std::thread::sleep(std::time::Duration::from_secs_f32(40.0));
+        std::thread::sleep(std::time::Duration::from_secs_f32(50.0));
     }
     Ok(())
 }

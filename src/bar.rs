@@ -1,6 +1,9 @@
 use crate::utils::MathOperation2;
 use crate::Kline;
 use std::ops::Div;
+use log::{debug, error, log_enabled, info, Level};
+
+
 
 /// 根据bar的数据得出对应的单根形态
 //当前分数计算是根据空单预期计算的，满分五分，强吊尾为6分，强阳线为0分
@@ -36,6 +39,8 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     }
 
     //如果是上吊尾形态+2
+    //Have no take order signal,below is detail score:market MANAUSDT,shape_score 0,volume_score 4,recent_shape_score 6
+    // data_0002 1675364632830//这个时候的形态计算不对
     let diaowei_ratio = last_bar.high_price.to_f32()
         - last_bar.close_price.to_f32() / last_bar.close_price.to_f32()
         - last_bar.low_price.to_f32();
@@ -47,6 +52,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
             score += 1;
         } else {
             score = 0;
+            info!("last bar shape get zero score,last bar detail {:?}",last_bar);
         }
     } else {
     }
