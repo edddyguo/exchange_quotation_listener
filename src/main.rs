@@ -12,7 +12,7 @@ mod kline;
 mod order;
 mod utils;
 use crate::account::get_usdt_balance;
-use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score};
+use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num};
 use crate::constant::{
     BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1,
     INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
@@ -120,7 +120,7 @@ async fn is_break_through_market(market: &str) -> bool {
     let mut recent_klines = line_data[0..=79+1].to_owned();
     //9..=13
     let broken_klines = &line_data[109..=118];
-    assert_eq!(recent_klines.len(), 80);
+    assert_eq!(recent_klines.len(), 81);
     assert_eq!(broken_klines.len(), 10);
     //println!("recent_klines volume opentime {},start {},end {}",recent_klines[0].open_time,recent_klines[0].volume,recent_klines[19].volume);
     //println!("broken_klines volume opentime {},start {},end{}",broken_klines[0].open_time,broken_klines[0].volume,broken_klines[4].volume);
@@ -217,7 +217,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let all_pairs = list_all_pair().await;
     //symbol -> order time,price,amount
-    let mut take_order_pair: HashMap<String, (i64, f32, f32)> = HashMap::new();
+    let mut take_order_pair: HashMap<String, (u64, f32, f32)> = HashMap::new();
     loop {
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
             //20分钟内不允许再次下单
@@ -228,14 +228,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None => {}
                 Some(take_info) => {
                     let price_raise_ratio = current_price / take_info.1;
-                    //20X情况下：30个点止损，60个点止盈
-                    if price_raise_ratio > 1.015 || price_raise_ratio < 0.97{
-                        //taker_order
+                    //20X情况下：10个点止损，30个点止盈
+                    let kline_url = format!(
+                        "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=10",
+                        pair.symbol.as_str()
+                    );
+                    let line_datas = try_get(kline_url).await;
+                    //20X情况下：4个点止损,高峰之后根据10根k线之后，价格是否大于5根之前的价格2次这种情况就止盈
+                    if price_raise_ratio > 1.002
+                        || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[..]) >= 2){
                         take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
                         let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol,price_raise_ratio);
                         notify_lark(push_text).await?;
-                    } else if get_unix_timestamp_ms() - take_info.0 < 1200000 {
+                    } else if get_unix_timestamp_ms() as u64 - take_info.0 < 1200000 {
                         continue;
                     } else {
                     }
@@ -256,7 +262,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let recent_shape_score = recent_kline_shape_score(line_datas[7..=17].to_vec());
 
                 //总分分别是：7分，5分，10分
-                if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 7 {
+                if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 5 {
                     let balance = get_usdt_balance().await;
                     let price = line_datas
                         .last()
@@ -264,7 +270,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .close_price
                         .parse::<f32>()
                         .unwrap();
-                    //default lever ratio is 20x,每次1成仓位20倍
+                    //default lever ratio is 20x,每次2成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
                         .div(10.0)
@@ -273,7 +279,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     take_order(market.to_string(), taker_amount, "SELL".to_string()).await;
                     take_order_pair.insert(
                         market.to_string(),
-                        (get_unix_timestamp_ms(), price, taker_amount),
+                        (get_unix_timestamp_ms() as u64, price, taker_amount),
                     );
                     let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                             market,shape_score,volume_score,recent_shape_score,taker_amount
@@ -290,8 +296,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         info!("complete listen all pairs");
-        //保证1分钟只下单一次
-        std::thread::sleep(std::time::Duration::from_secs_f32(50.0));
+        //
+        std::thread::sleep(std::time::Duration::from_secs_f32(10.0));
     }
     Ok(())
 }

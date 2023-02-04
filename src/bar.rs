@@ -5,9 +5,21 @@ use log::{debug, error, log_enabled, info, Level};
 
 
 
+
+
+///根据最近10根的k线中是否出现2根大于index-5的情况来决定是否平仓
+pub fn get_raise_bar_num(bars: &[Kline]) -> u8{
+    assert_eq!(bars.len(),10);
+    let mut num = 0u8;
+    for (index,bar) in bars.iter().enumerate() {
+        if index >= 5 && bar.close_price > bars[index - 5].close_price{
+            num += 1;
+        }
+    }
+    num
+}
 /// 根据bar的数据得出对应的单根形态
 //当前分数计算是根据空单预期计算的，满分五分，强吊尾为6分，强阳线为0分
-
 pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     let last_bar = bars.as_slice().get(18).unwrap().to_owned();
     let last_bar_len = last_bar.high_price.to_f32() - last_bar.low_price.to_f32();
