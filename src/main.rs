@@ -234,8 +234,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         pair.symbol.as_str()
                     );
                     let line_datas = try_get(kline_url).await;
-                    //20X情况下：4个点止损,高峰之后根据10根k线之后，价格是否大于5根之前的价格2次这种情况就止盈
-                    if price_raise_ratio > 1.002
+                    //20X情况下：0.4个点止损,高峰之后根据10根k线之后，价格是否大于5根之前的价格2次这种情况就止盈
+                    if price_raise_ratio > 1.0
                         || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[..]) >= 2){
                         take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
@@ -267,13 +267,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let price = line_datas
                         .last()
                         .unwrap()
-                        .close_price
+                        .open_price
                         .parse::<f32>()
                         .unwrap();
                     //default lever ratio is 20x,每次2成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
-                        .div(10.0)
+                        .div(5.0)
                         .div(price)
                         .to_fix(pair.quantity_precision as u32);
                     take_order(market.to_string(), taker_amount, "SELL".to_string()).await;
