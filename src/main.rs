@@ -99,6 +99,7 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
                 warn!("reqwest get happened error {}", error.to_string());
             }
         }
+        std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
     }
     line_data
 }
@@ -155,7 +156,7 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
     let res = client
         .post(
             //"https://open.larksuite.com/open-apis/bot/v2/hook/83874fa0-1316-4cc2-8e88-7f8fd9d5d5e9",
-            "https://open.larksuite.com/open-apis/bot/v2/hook/38692ffa-9b47-4289-b254-cc4cfc5df048",
+            "https://open.larksuite.com/open-apis/bot/v2/hook/f1011068-13f1-4258-a98d-3c65a0449bb0",
         )
         .json(&data)
         .header("Content-type", "application/json")
