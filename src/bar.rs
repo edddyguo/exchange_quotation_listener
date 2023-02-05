@@ -18,6 +18,19 @@ pub fn get_raise_bar_num(bars: &[Kline]) -> u8{
     }
     num
 }
+
+//获取k线中巨量交易的k线
+pub fn get_huge_volume_bar_num(bars: &[Kline],min_volume: f32,ration: f32) -> u8{
+    let mut huge_volume_bars_num = 0;
+    for bar in bars {
+        let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
+        if increase_volume > ration {
+            huge_volume_bars_num += 1;
+        }
+    }
+    huge_volume_bars_num
+}
+
 /// 根据bar的数据得出对应的单根形态
 //当前分数计算是根据空单预期计算的，满分五分，强吊尾为6分，强阳线为0分
 pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {

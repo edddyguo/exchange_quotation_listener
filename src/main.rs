@@ -12,14 +12,14 @@ mod kline;
 mod order;
 mod utils;
 use crate::account::get_usdt_balance;
-use crate::bar::{get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num};
+use crate::bar::{get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num};
 use crate::constant::{
     BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1,
     INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
 };
 use crate::ex_info::{list_all_pair, Symbol};
 use crate::filters::Root;
-use crate::kline::{get_current_price, recent_kline_shape_score};
+use crate::kline::{get_average_info, get_current_price, recent_kline_shape_score};
 use crate::order::take_order;
 use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2};
 use chrono::prelude::*;
@@ -103,7 +103,7 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
     line_data
 }
 
-//判断是否是突破形态，根据30分钟k线是否巨量
+//是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
 async fn is_break_through_market(market: &str) -> bool {
     let kline_url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval={}m&limit={}",
@@ -118,52 +118,30 @@ async fn is_break_through_market(market: &str) -> bool {
     //方案2：80-30-10
     //选81个，后边再剔除量最大的
     let mut recent_klines = line_data[0..=79+1].to_owned();
-    //9..=13
+    let mut middle_klines = line_data[80..=109+1].to_owned();
     let broken_klines = &line_data[109..=118];
     assert_eq!(recent_klines.len(), 81);
+    assert_eq!(middle_klines.len(), 31);
     assert_eq!(broken_klines.len(), 10);
-    //println!("recent_klines volume opentime {},start {},end {}",recent_klines[0].open_time,recent_klines[0].volume,recent_klines[19].volume);
-    //println!("broken_klines volume opentime {},start {},end{}",broken_klines[0].open_time,broken_klines[0].volume,broken_klines[4].volume);
-    recent_klines.sort_by(|a,b| a.volume.to_f32().partial_cmp(&b.volume.to_f32()).unwrap());
-    let recent_klines = &recent_klines[0..=79];
-    let recent_lines_num = recent_klines.len();
 
-    let recent_volume = recent_klines
-        .iter()
-        .map(|x| x.volume.parse::<f32>().unwrap())
-        .sum::<f32>()
-        .div(recent_lines_num as f32);
-
-    let recent_price = recent_klines
-        .iter()
-        .map(|x| x.close_price.parse::<f32>().unwrap())
-        .sum::<f32>()
-        .div(recent_lines_num as f32);
-
-    //价格以当前的计算就行
+    let (recent_average_price,recent_average_volume) = get_average_info(&recent_klines[..]);
+    let (middle_average_price,middle_average_volume) = get_average_info(&middle_klines[..]);
+    //价格以当前high为准
     let current_price = line_data[KLINE_NUM_FOR_FIND_SIGNAL - 1].high_price.to_f32();
-    let increase_price = (current_price - recent_price).div(recent_price);
 
-    println!("market {} increase_price {}", market, increase_price);
-    if increase_price < INCREASE_PRICE_LEVEL2 {
-        return false;
-    }
     //交易量要大部分bar都符合要求
-    let mut huge_volume_bars_num = 0;
-    for broken_kline in broken_klines {
-        let increase_volume = (broken_kline.volume.to_f32() - recent_volume).div(recent_volume);
-        //println!("market {} increase_volume {}", market,increase_volume);
-        if increase_volume > INCREASE_VOLUME_LEVEL2 {
-            huge_volume_bars_num += 1;
-        }
-    }
+    let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,recent_average_volume,INCREASE_VOLUME_LEVEL2);
+    let mut middle_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,middle_average_volume,INCREASE_VOLUME_LEVEL2);
 
-    //暂时最近五个三个巨量就行
-    //暂时最近十个六个巨量就行
-    if huge_volume_bars_num <= 5 {
-        return false;
+    let recent_price_increase_rate = (current_price - recent_average_price).div(recent_average_price);
+    let middle_price_increase_rate = (current_price - middle_average_price).div(middle_average_price);
+
+    if  (recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5)
+        || (middle_price_increase_rate >=  INCREASE_PRICE_LEVEL2 && middle_huge_volume_bars_num >= 5)
+    {
+        return true;
     }
-    true
+    false
 }
 
 //推送消息给lark机器人
@@ -189,23 +167,7 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-//判断是否五连阳
-async fn is_many_increase_times(market: &str, limit: u8) -> bool {
-    let kline_url = format!(
-        "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
-        market, limit
-    );
-    let line_datas = try_get(kline_url).await;
-    //1分钟k线中拥有五连阳的
-    for (index, line_data) in line_datas.iter().enumerate() {
-        if (index > 0 && line_data.close_price <= line_datas[index - 1].close_price)
-            || line_data.close_price <= line_data.open_price
-        {
-            return false;
-        }
-    }
-    true
-}
+
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
 //策略：1h的k线，涨幅百分之1，量增加2倍
