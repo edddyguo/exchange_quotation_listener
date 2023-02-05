@@ -59,7 +59,8 @@ pub async fn get_current_price(symbol: &str) -> f32 {
 //根据之前10根的k线情况给分
 pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
     assert_eq!(bars.len(), 11, "must be 10 item");
-    let mut score = 0.0f32;
+    let mut score = 0u8;
+    let mut score_tmp = 0u8;
     //1分钟k线中拥有五连阳的
     for (index, line_data) in bars.iter().enumerate() {
         //if (index > 0 && line_data.close_price <= bars[index - 1].close_price)
@@ -68,10 +69,17 @@ pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
             && line_data.close_price >= line_data.open_price
             && line_data.close_price >= bars[index - 1].close_price
         {
-            score += 1.0;
+            //最后五根必须至少三根阳
+            if index >= 6 {
+                score_tmp += 1;
+            }
+            score += 1;
         }
     }
-    score.floor() as u8
+    if score_tmp <= 2{
+        score = 0;
+    }
+    score
 }
 
 //获取数据的平均价格和成交量

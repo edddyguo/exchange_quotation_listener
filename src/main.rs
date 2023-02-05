@@ -13,10 +13,7 @@ mod order;
 mod utils;
 use crate::account::get_usdt_balance;
 use crate::bar::{get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num};
-use crate::constant::{
-    BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1,
-    INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
-};
+use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL};
 use crate::ex_info::{list_all_pair, Symbol};
 use crate::filters::Root;
 use crate::kline::{get_average_info, get_current_price, recent_kline_shape_score};
@@ -132,13 +129,14 @@ async fn is_break_through_market(market: &str) -> bool {
 
     //交易量要大部分bar都符合要求
     let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,recent_average_volume,INCREASE_VOLUME_LEVEL2);
-    let mut middle_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,middle_average_volume,INCREASE_VOLUME_LEVEL2);
+    let mut middle_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,middle_average_volume,3.0);
 
     let recent_price_increase_rate = (current_price - recent_average_price).div(recent_average_price);
     let middle_price_increase_rate = (current_price - middle_average_price).div(middle_average_price);
 
+    //middle_average_volume判断是否为洼地
     if  (recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5)
-        || (middle_price_increase_rate >=  INCREASE_PRICE_LEVEL2 && middle_huge_volume_bars_num >= 5)
+        || (recent_average_volume / middle_average_volume > 3.0 && middle_price_increase_rate >=  INCREASE_PRICE_LEVEL2 && middle_huge_volume_bars_num >= 5)
     {
         return true;
     }
@@ -186,17 +184,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             //20分钟内不允许再次下单
             //todo：增加止损的逻辑,20点就止损
             //todo: 目前人工维护已下单数据，后期考虑链上获取
-            let current_price = get_current_price(pair.symbol.as_str()).await;
+            //let current_price = get_current_price(pair.symbol.as_str()).await;
             match take_order_pair.get(pair.symbol.as_str()) {
                 None => {}
                 Some(take_info) => {
-                    let price_raise_ratio = current_price / take_info.1;
                     //20X情况下：10个点止损，30个点止盈
                     let kline_url = format!(
                         "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=10",
                         pair.symbol.as_str()
                     );
                     let line_datas = try_get(kline_url).await;
+
+                    let price_raise_ratio = line_datas[9].close_price.to_f32() / take_info.1;
                     //20X情况下：0.4个点止损,高峰之后根据10根k线之后，价格是否大于5根之前的价格2次这种情况就止盈
                     if price_raise_ratio > 1.0
                         || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[..]) >= 2){
@@ -227,16 +226,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 //总分分别是：7分，5分，10分
                 if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 5 {
                     let balance = get_usdt_balance().await;
-                    let price = line_datas
-                        .last()
-                        .unwrap()
+                    //以倒数第二根的open，作为标记price
+                    let price = line_datas[18]
                         .open_price
                         .parse::<f32>()
                         .unwrap();
+
                     //default lever ratio is 20x,每次2成仓位20倍
                     let taker_amount = balance
                         .mul(20.0)
-                        .div(5.0)
+                        .div(10.0)
                         .div(price)
                         .to_fix(pair.quantity_precision as u32);
                     take_order(market.to_string(), taker_amount, "SELL".to_string()).await;
@@ -260,7 +259,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         info!("complete listen all pairs");
         //
-        std::thread::sleep(std::time::Duration::from_secs_f32(10.0));
+        std::thread::sleep(std::time::Duration::from_secs_f32(40.0));
     }
     Ok(())
 }
