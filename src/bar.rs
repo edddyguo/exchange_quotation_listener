@@ -22,10 +22,12 @@ pub fn get_raise_bar_num(bars: &[Kline]) -> u8{
 //获取k线中巨量交易的k线
 pub fn get_huge_volume_bar_num(bars: &[Kline],min_volume: f32,ration: f32) -> u8{
     let mut huge_volume_bars_num = 0;
-    for bar in bars {
+    for (index,bar) in bars.iter().enumerate() {
         let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
         if increase_volume > ration {
             huge_volume_bars_num += 1;
+        }else if index >= 5 && increase_volume < 2.0 { //保证最近5根，每一根都要大于min的3倍以上
+            return 0u8;
         }
     }
     huge_volume_bars_num
@@ -93,7 +95,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
         score = 0;
         score_detail = format!("{},F:=0",score_detail);
     }
-    info!("last bar shape get zero score,last bar detail {}",score_detail);
+    info!("score_detail {}",score_detail);
     score
 }
 
