@@ -40,27 +40,33 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     let pre_last_bar_len = pre_last_bar.high_price.to_f32() - pre_last_bar.low_price.to_f32();
 
     let mut score = 0;
+    let mut score_detail = "score_detail: ".to_string();
     //阴线
     if last_bar.open_price.to_f32() > last_bar.close_price.to_f32() {
-        score += 1
+        score += 1;
+        score_detail = format!("{},A:+1",score_detail);
     }
     //收尾比之前低
     if last_bar.close_price.to_f32() < pre_last_bar.close_price.to_f32() {
-        score += 1
+        score += 1;
+        score_detail = format!("{},B:+1",score_detail);
     }
     //当前有触顶部
     if last_bar.high_price.to_f32() > pre_last_bar.high_price.to_f32() {
-        score += 1
+        score += 1;
+        score_detail = format!("{},C:+1",score_detail);
     }
 
     //击穿上一根的启动价格
     if last_bar.close_price.to_f32() < pre_last_bar.open_price.to_f32() {
-        score += 1
+        score += 1;
+        score_detail = format!("{},D:+1",score_detail);
     }
 
     //最后一根的长度大于前一根
     if last_bar_len / pre_last_bar_len > 1.0 {
-        score += 1
+        score += 1;
+        score_detail = format!("{},E:+1",score_detail);
     }
 
     //如果是上吊尾形态+2
@@ -69,18 +75,25 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     let diaowei_ratio = last_bar.high_price.to_f32()
         - last_bar.close_price.to_f32() / last_bar.close_price.to_f32()
         - last_bar.low_price.to_f32();
-    if last_bar.close_price.to_f32() == last_bar.low_price.to_f32() || diaowei_ratio > 2.0 {
+
+    let diaowei_up_distance = last_bar.high_price.to_f32() - last_bar.close_price.to_f32();
+    let diaowei_down_distance = last_bar.close_price.to_f32() - last_bar.low_price.to_f32();
+
+    if diaowei_down_distance == 0.0 ||  diaowei_up_distance / diaowei_down_distance > 3.0 {
         score += 2;
+        score_detail = format!("{},F:+2",score_detail);
         //如果open等于high，而且close不等于low，则可能是有抄底资金进入,谨慎打分
-    } else if last_bar.open_price.to_f32() == last_bar.high_price.to_f32() {
-        if diaowei_ratio > 3.0 {
-            score += 1;
-        } else {
-            score = 0;
-            info!("last bar shape get zero score,last bar detail {:?}",last_bar);
-        }
-    } else {
+    } else if diaowei_up_distance / diaowei_down_distance > 2.0  {
+        score += 1;
+        score_detail = format!("{},F:+1",score_detail);
+    } else if diaowei_up_distance / diaowei_down_distance <= 1.0{
+        score += 0;
+        score_detail = format!("{},F:+0",score_detail);
+    }else {
+        score = 0;
+        score_detail = format!("{},F:=0",score_detail);
     }
+    info!("last bar shape get zero score,last bar detail {}",score_detail);
     score
 }
 

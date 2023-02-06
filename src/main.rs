@@ -135,8 +135,10 @@ async fn is_break_through_market(market: &str) -> bool {
     let middle_price_increase_rate = (current_price - middle_average_price).div(middle_average_price);
 
     //middle_average_volume判断是否为洼地
-    if  (recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5)
+   /* if  (recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5)
         || (recent_average_volume / middle_average_volume > 3.0 && middle_price_increase_rate >=  INCREASE_PRICE_LEVEL2 && middle_huge_volume_bars_num >= 5)
+    */
+    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5
     {
         return true;
     }
@@ -203,6 +205,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         take_order_pair.remove(pair.symbol.as_str());
                         let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol,price_raise_ratio);
                         notify_lark(push_text).await?;
+                        continue;
                     } else if get_unix_timestamp_ms() as u64 - take_info.0 < 1200000 {
                         continue;
                     } else {
@@ -224,7 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let recent_shape_score = recent_kline_shape_score(line_datas[7..=17].to_vec());
 
                 //总分分别是：7分，5分，10分
-                if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 5 {
+                if shape_score >= 5 && volume_score >= 3 && recent_shape_score >= 5 {
                     let balance = get_usdt_balance().await;
                     //以倒数第二根的open，作为标记price
                     let price = line_datas[18]
