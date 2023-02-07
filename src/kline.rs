@@ -94,13 +94,13 @@ pub fn get_average_info(klines: &[Kline]) -> (f32,f32){
         .iter()
         .map(|x| x.volume.parse::<f32>().unwrap())
         .sum::<f32>()
-        .div(len as f32);
+        .div(klines.len() as f32);
 
     let average_price = klines
         .iter()
         .map(|x| x.close_price.parse::<f32>().unwrap())
         .sum::<f32>()
-        .div(len as f32);
+        .div(klines.len() as f32);
     (average_price,average_volume)
 }
 

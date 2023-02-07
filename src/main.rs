@@ -103,42 +103,27 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
 async fn is_break_through_market(market: &str,line_datas: &[Kline]) -> bool {
- /*   let kline_url = format!(
-        "https://api.binance.com/api/v3/klines?symbol={}&interval={}m&limit={}",
-        market, BROKEN_UP_INTERVALS, KLINE_NUM_FOR_FIND_SIGNAL
-    );
-    let line_datas = try_get(kline_url).await;*/
-    assert_eq!(line_datas.len(),120);
+    assert_eq!(line_datas.len(),KLINE_NUM_FOR_FIND_SIGNAL);
     println!(
         "test1 start {} - end {}",
         line_datas[0].open_time, line_datas[34].open_time
     );
-    //当前是20-10-5的分布：20个作为平常参考，9个作为过度，5个作为突破信号判断
-    //方案2：80-30-10
-    //选81个，后边再剔除量最大的
-    let mut recent_klines = line_datas[0..=79+1].to_owned();
-    let mut middle_klines = line_datas[80..=109+1].to_owned();
-    let broken_klines = &line_datas[109..=118];
-    assert_eq!(recent_klines.len(), 81);
-    assert_eq!(middle_klines.len(), 31);
+    //选351个，后边再剔除量最大的
+    let mut recent_klines = line_datas[0..=350].to_owned();
+    let broken_klines = &line_datas[349..=358];
+    assert_eq!(recent_klines.len(), 351);
     assert_eq!(broken_klines.len(), 10);
 
     let (recent_average_price,recent_average_volume) = get_average_info(&recent_klines[..]);
-    let (middle_average_price,middle_average_volume) = get_average_info(&middle_klines[..]);
     //价格以当前high为准
     let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].high_price.to_f32();
 
     //交易量要大部分bar都符合要求
     let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,recent_average_volume,INCREASE_VOLUME_LEVEL2);
-    let mut middle_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,middle_average_volume,3.0);
 
     let recent_price_increase_rate = (current_price - recent_average_price).div(recent_average_price);
-    let middle_price_increase_rate = (current_price - middle_average_price).div(middle_average_price);
 
-    //middle_average_volume判断是否为洼地
-   /* if  (recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5)
-        || (recent_average_volume / middle_average_volume > 3.0 && middle_price_increase_rate >=  INCREASE_PRICE_LEVEL2 && middle_huge_volume_bars_num >= 5)
-    */
+
     if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5
     {
         return true;
@@ -185,8 +170,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
             let kline_url = format!(
-                "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=120",
-                pair.symbol.as_str()
+                "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
+                pair.symbol.as_str(),KLINE_NUM_FOR_FIND_SIGNAL
             );
             let line_datas = try_get(kline_url).await;
 
@@ -194,12 +179,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match take_order_pair.get(pair.symbol.as_str()) {
                 None => {}
                 Some(take_info) => {
-                    let line_datas = &line_datas[100..];
-                    //20X情况下：10个点止损，30个点止盈
-                    let price_raise_ratio = line_datas[19].close_price.to_f32() / take_info.1;
-                    //20X情况下：0.4个点止损,高峰之后根据10根k线之后，价格是否大于5根之前的价格2次这种情况就止盈
+                    let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL-1].close_price.to_f32() / take_info.1;
+                    //20X情况下：0.4个点止损,高峰之后根据20根k线之后，价格是否大于10根之前的价格5次这种情况就止盈
                     if price_raise_ratio > 1.002
-                        || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[..]) >= 5){
+                        || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL-20..]) >= 5){
                         take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
                         let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol,price_raise_ratio);
@@ -215,14 +198,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let market = pair.symbol.as_str();
             println!("index {},market {}", index, market);
             if is_break_through_market(market,&line_datas).await {
-                println!("Found break signal");
-                /*let kline_url = format!(
-                    "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit=20",
-                    market
-                );
-                let line_datas = try_get(kline_url).await;
-                */
-                let line_datas = &line_datas[100..120];
+                let line_datas = &line_datas[340..360];
                 let shape_score = get_last_bar_shape_score(line_datas.to_owned());
                 let volume_score = get_last_bar_volume_score(line_datas.to_owned());
                 //8-17。多一个作为价格比较的基准

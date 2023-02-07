@@ -12,9 +12,9 @@ pub const BNB_API_KEY: &'static str =
 pub const RECV_WINDOW: u16 = 50000;
 pub const BROKEN_UP_INTERVALS: u8 = 1;
 //15 minutes
-pub const KLINE_NUM_FOR_FIND_SIGNAL: usize = 120;
-pub const INCREASE_PRICE_LEVEL1: f32 = 0.038;
-pub const INCREASE_PRICE_LEVEL2: f32 = 0.038;
+pub const KLINE_NUM_FOR_FIND_SIGNAL: usize = 360;
+pub const INCREASE_PRICE_LEVEL1: f32 = 0.03;
+pub const INCREASE_PRICE_LEVEL2: f32 = 0.03;
 pub const INCREASE_VOLUME_LEVEL1: f32 = 5.0;
 pub const INCREASE_VOLUME_LEVEL2: f32 = 5.0;
 
