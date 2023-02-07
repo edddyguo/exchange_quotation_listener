@@ -104,10 +104,6 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
 async fn is_break_through_market(market: &str,line_datas: &[Kline]) -> bool {
     assert_eq!(line_datas.len(),KLINE_NUM_FOR_FIND_SIGNAL);
-    println!(
-        "test1 start {} - end {}",
-        line_datas[0].open_time, line_datas[34].open_time
-    );
     //选351个，后边再剔除量最大的
     let mut recent_klines = line_datas[0..=350].to_owned();
     let broken_klines = &line_datas[349..=358];
@@ -123,7 +119,8 @@ async fn is_break_through_market(market: &str,line_datas: &[Kline]) -> bool {
 
     let recent_price_increase_rate = (current_price - recent_average_price).div(recent_average_price);
 
-
+    info!("judge_break_signal market {},recent_price_increase_rate {},recent_huge_volume_bars_num {}
+    ",market,recent_price_increase_rate,recent_huge_volume_bars_num);
     if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5
     {
         return true;
@@ -182,7 +179,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL-1].close_price.to_f32() / take_info.1;
                     //20X情况下：0.4个点止损,高峰之后根据20根k线之后，价格是否大于10根之前的价格5次这种情况就止盈
                     if price_raise_ratio > 1.002
-                        || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL-20..]) >= 5){
+                        || (line_datas[KLINE_NUM_FOR_FIND_SIGNAL-20].open_time > take_info.0 && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL-20..]) >= 5){
                         take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
                         let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol,price_raise_ratio);
@@ -196,8 +193,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             let market = pair.symbol.as_str();
-            println!("index {},market {}", index, market);
             if is_break_through_market(market,&line_datas).await {
+                info!("found break signal：index {},market {}", index, market);
                 let line_datas = &line_datas[340..360];
                 let shape_score = get_last_bar_shape_score(line_datas.to_owned());
                 let volume_score = get_last_bar_volume_score(line_datas.to_owned());
@@ -227,6 +224,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                             market,shape_score,volume_score,recent_shape_score,taker_amount
                     );
+                    info!("Take order {}",push_text );
                     notify_lark(push_text).await?
                 } else {
                     info!("Have no take order signal,\
