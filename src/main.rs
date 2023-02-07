@@ -194,12 +194,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match take_order_pair.get(pair.symbol.as_str()) {
                 None => {}
                 Some(take_info) => {
-                    let line_datas = &line_datas[110..];
+                    let line_datas = &line_datas[100..];
                     //20X情况下：10个点止损，30个点止盈
-                    let price_raise_ratio = line_datas[9].close_price.to_f32() / take_info.1;
+                    let price_raise_ratio = line_datas[19].close_price.to_f32() / take_info.1;
                     //20X情况下：0.4个点止损,高峰之后根据10根k线之后，价格是否大于5根之前的价格2次这种情况就止盈
-                    if price_raise_ratio > 1.0
-                        || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[..]) >= 2){
+                    if price_raise_ratio > 1.002
+                        || (line_datas[0].open_time > take_info.0 && get_raise_bar_num(&line_datas[..]) >= 5){
                         take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
                         take_order_pair.remove(pair.symbol.as_str());
                         let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol,price_raise_ratio);

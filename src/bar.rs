@@ -9,10 +9,10 @@ use log::{debug, error, log_enabled, info, Level};
 
 ///根据最近10根的k线中是否出现2根大于index-5的情况来决定是否平仓
 pub fn get_raise_bar_num(bars: &[Kline]) -> u8{
-    assert_eq!(bars.len(),10);
+    assert_eq!(bars.len(),20);
     let mut num = 0u8;
     for (index,bar) in bars.iter().enumerate() {
-        if index >= 5 && bar.close_price > bars[index - 5].close_price{
+        if index >= 10 && bar.close_price > bars[index - 10].close_price{
             num += 1;
         }
     }
@@ -26,7 +26,7 @@ pub fn get_huge_volume_bar_num(bars: &[Kline],min_volume: f32,ration: f32) -> u8
         let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
         if increase_volume > ration {
             huge_volume_bars_num += 1;
-        }else if index >= 5 && increase_volume < 2.0 { //保证最近5根，每一根都要大于min的3倍以上
+        }else if index >= 5 && increase_volume < 2.0 { //保证最近5根，每一根都要大于min的2倍以上
             return 0u8;
         }
     }
