@@ -11,6 +11,7 @@ mod filters;
 mod kline;
 mod order;
 mod utils;
+
 use crate::account::get_usdt_balance;
 use crate::bar::{get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num};
 use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL};
@@ -22,7 +23,7 @@ use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2};
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ops::{Div, Mul};
+use std::ops::{Div, Mul, Sub};
 use log::{debug, error, log_enabled, info, Level};
 
 
@@ -69,6 +70,17 @@ struct RateLimits {
     intervalNum: u8,
     limit: u32,
 }
+
+//symbol -> order time,price,amount
+#[derive(Debug, Serialize)]
+struct TakeOrderInfo {
+    take_time: u64,
+    //如果没下单，则以30分钟内尝试检测是否再次拉升
+    price: f32,
+    amount: f32,
+    is_took: bool, //是否已经下单
+}
+
 //todo: 不只是kline，用泛型弄
 async fn try_get(kline_url: String) -> Vec<Kline> {
     let mut line_data;
@@ -102,20 +114,20 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 }
 
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
-async fn is_break_through_market(market: &str,line_datas: &[Kline]) -> bool {
-    assert_eq!(line_datas.len(),KLINE_NUM_FOR_FIND_SIGNAL);
+async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
+    assert_eq!(line_datas.len(), KLINE_NUM_FOR_FIND_SIGNAL);
     //选351个，后边再剔除量最大的
     let mut recent_klines = line_datas[0..=350].to_owned();
     let broken_klines = &line_datas[349..=358];
     assert_eq!(recent_klines.len(), 351);
     assert_eq!(broken_klines.len(), 10);
 
-    let (recent_average_price,recent_average_volume) = get_average_info(&recent_klines[..]);
+    let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
     //价格以当前high为准
     let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].high_price.to_f32();
 
     //交易量要大部分bar都符合要求
-    let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines,recent_average_volume,INCREASE_VOLUME_LEVEL2);
+    let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines, recent_average_volume, INCREASE_VOLUME_LEVEL2);
 
     let recent_price_increase_rate = (current_price - recent_average_price).div(recent_average_price);
 
@@ -152,6 +164,8 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 }
 
 
+pub async fn excute_take_order_logic() {}
+
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
 //策略：1h的k线，涨幅百分之1，量增加2倍
@@ -163,37 +177,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let all_pairs = list_all_pair().await;
     //symbol -> order time,price,amount
-    let mut take_order_pair: HashMap<String, (u64, f32, f32)> = HashMap::new();
+    //let mut take_order_pair: HashMap<String, (u64, f32, f32)> = HashMap::new();
+    let mut take_order_pair2: HashMap<String, TakeOrderInfo> = HashMap::new();
     loop {
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
             let kline_url = format!(
                 "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
-                pair.symbol.as_str(),KLINE_NUM_FOR_FIND_SIGNAL
+                pair.symbol.as_str(), KLINE_NUM_FOR_FIND_SIGNAL
             );
             let line_datas = try_get(kline_url).await;
-
+            let now = get_unix_timestamp_ms() as u64;
             //todo: 目前人工维护已下单数据，后期考虑链上获取
-            match take_order_pair.get(pair.symbol.as_str()) {
+            match take_order_pair2.get(pair.symbol.as_str()) {
                 None => {}
                 Some(take_info) => {
-                    let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL-1].close_price.to_f32() / take_info.1;
-                    //20X情况下：0.4个点止损,高峰之后根据20根k线之后，价格是否大于10根之前的价格5次这种情况就止盈
-                    if price_raise_ratio > 1.002
-                        || (line_datas[KLINE_NUM_FOR_FIND_SIGNAL-20].open_time > take_info.0 && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL-20..]) >= 5){
-                        take_order(pair.symbol.clone(), take_info.2, "BUY".to_string()).await;
-                        take_order_pair.remove(pair.symbol.as_str());
-                        let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol,price_raise_ratio);
-                        notify_lark(push_text).await?;
-                        continue;
-                    } else if get_unix_timestamp_ms() as u64 - take_info.0 < 1200000 {
-                        //20分钟内不允许再次下单
-                        continue;
+                    if take_info.is_took == true {
+                        let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].close_price.to_f32() / take_info.price;
+                        //20X情况下：0.4个点止损,高峰之后根据20根k线之后，价格是否大于10根之前的价格5次这种情况就止盈
+                        if price_raise_ratio > 1.002
+                            || (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20].open_time > take_info.take_time && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20..]) >= 5) {
+                            take_order(pair.symbol.clone(), take_info.amount, "BUY".to_string()).await;
+                            take_order_pair2.remove(pair.symbol.as_str());
+                            let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol, price_raise_ratio);
+                            notify_lark(push_text).await?;
+                            continue;
+                        } else if now.sub(take_info.take_time) < 1200000 {
+                            //20分钟内不允许再次下单
+                            continue;
+                        } else {}
                     } else {
+                        //加入观察列表五分钟内不在观察，40分钟内仍没有二次拉起的则将其移除观察列表
+                        if now.sub(take_info.take_time) < 300000 {
+                            continue;
+                        }else if now.sub(take_info.take_time) > 1200000 {
+                            take_order_pair2.remove(pair.symbol.as_str());
+                        }else {
+                        }
                     }
                 }
             }
             let market = pair.symbol.as_str();
-            if is_break_through_market(market,&line_datas).await {
+            if is_break_through_market(market, &line_datas).await {
                 info!("found break signal：index {},market {}", index, market);
                 let line_datas = &line_datas[340..360];
                 let shape_score = get_last_bar_shape_score(line_datas.to_owned());
@@ -202,7 +226,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let recent_shape_score = recent_kline_shape_score(line_datas[7..=17].to_vec());
 
                 //总分分别是：7分，5分，10分
-                if shape_score >= 5 && volume_score >= 3 && recent_shape_score >= 5 {
+                //分为三种情况：强信号直接下单，弱信号加入观测名单，弱信号且已经在观查名单且距离观察名单超过五分钟的就下单，
+                if take_order_pair2.get(market).is_none() && shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 5 {
                     let balance = get_usdt_balance().await;
                     //以倒数第二根的open，作为标记price
                     let price = line_datas[18]
@@ -216,16 +241,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .div(10.0)
                         .div(price)
                         .to_fix(pair.quantity_precision as u32);
-                    take_order(market.to_string(), taker_amount, "SELL".to_string()).await;
-                    take_order_pair.insert(
-                        market.to_string(),
-                        (get_unix_timestamp_ms() as u64, price, taker_amount),
-                    );
-                    let push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                            market,shape_score,volume_score,recent_shape_score,taker_amount
-                    );
+                    let mut push_text = "".to_string();
+                    //强信号或者二次拉升
+                    if (shape_score >= 5 && volume_score >= 5 && recent_shape_score >= 8)
+                        || take_order_pair2.get(market).is_some()
+                    {
+                        take_order(market.to_string(), taker_amount, "SELL".to_string()).await;
+                        let order_info = TakeOrderInfo {
+                            take_time: get_unix_timestamp_ms() as u64,
+                            price,
+                            amount: taker_amount,
+                            is_took: true,
+                        };
+                        take_order_pair2.insert(
+                            market.to_string(),
+                            order_info,
+                        );
+                        push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                            market, shape_score, volume_score, recent_shape_score, taker_amount
+                        );
+                    } else {
+                        let order_info = TakeOrderInfo {
+                            take_time: get_unix_timestamp_ms() as u64,
+                            price,
+                            amount: 0.0,//not care
+                            is_took: false,
+                        };
+                        take_order_pair2.insert(
+                            market.to_string(),
+                            order_info,
+                        );
+                        push_text = format!("加入观察列表: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                            market, shape_score, volume_score, recent_shape_score, taker_amount
+                        );
+                    }
                     info!("Take order {}",push_text );
-                    notify_lark(push_text).await?
+                    notify_lark(push_text).await?;
                 } else {
                     info!("Have no take order signal,\
                      below is detail score:market {},shape_score {},volume_score {},recent_shape_score {}",

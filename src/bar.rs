@@ -60,10 +60,11 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     }
 
     //击穿上一根的启动价格
-    if last_bar.close_price.to_f32() < pre_last_bar.open_price.to_f32() {
+    //todo: 和B项的判断是否重复了？
+/*    if last_bar.close_price.to_f32() < pre_last_bar.open_price.to_f32() {
         score += 1;
         score_detail = format!("{},D:+1",score_detail);
-    }
+    }*/
 
     //最后一根的长度大于前一根
     if last_bar_len / pre_last_bar_len > 1.0 {
@@ -82,7 +83,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     let diaowei_down_distance = last_bar.close_price.to_f32() - last_bar.low_price.to_f32();
 
     if diaowei_down_distance == 0.0 ||  diaowei_up_distance / diaowei_down_distance > 3.0 {
-        score += 2;
+        score += 3;
         score_detail = format!("{},F:+2",score_detail);
         //如果open等于high，而且close不等于low，则可能是有抄底资金进入,谨慎打分
     } else if diaowei_up_distance / diaowei_down_distance > 2.0  {
