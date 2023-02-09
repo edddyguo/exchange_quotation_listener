@@ -182,23 +182,48 @@ pub async fn excute_real_trading() {
             let line_datas = try_get(kline_url).await;
             let now = get_unix_timestamp_ms() as u64;
             //todo: 目前人工维护已下单数据，后期考虑链上获取
-            match strategy::buy(&mut take_order_pair2, pair.symbol.as_str(), &line_datas, now).await {
+            match strategy::buy(&mut take_order_pair2, pair.symbol.as_str(), &line_datas, now,true).await {
                 Ok(true) => {
                     continue;
                 }
                 Ok(false) => {}
                 Err(_) => {}
             }
-            let _ = strategy::sell(&mut take_order_pair2,&line_datas,&pair,balance,now).await;
+            let _ = strategy::sell(&mut take_order_pair2,&line_datas,&pair,balance,now,true).await;
         }
         info!("complete listen all pairs");
         //保证每次顶多一次下单、平仓
+        //todo: 可以更精确的堵塞，等待当前k线结束
         std::thread::sleep(std::time::Duration::from_secs_f32(26.0));
     }
 }
 
-pub async fn excute_back_testing() {
-    todo!()
+pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
+    let balance = get_usdt_balance().await;
+    let mut take_order_pair2: HashMap<String, TakeOrderInfo> = HashMap::new();
+    let mut index = 0;
+    for (pair,klines) in history_data {
+        let start_time = klines[0].open_time;
+        for bar in &klines[360..] {
+            //now 其实不需要精确就去当前bar的start time +1s 即可
+            let now = bar.open_time + 1000;
+            let line_datas= &klines[index..(index+360)];
+            match strategy::buy(&mut take_order_pair2, pair.symbol.as_str(), &line_datas, now,false).await {
+                Ok(true) => {
+                    continue;
+                }
+                Ok(false) => {}
+                Err(_) => {}
+            }
+            let _ = strategy::sell(&mut take_order_pair2,&line_datas,&pair,balance,now,false).await;
+            index += 1;
+            if index >= 1000 {
+                break;
+            }
+        }
+        //test one symbol
+        break;
+    }
 }
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
@@ -226,7 +251,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
-            load_history_data(1).await;
+            let history_data = load_history_data(1).await;
+            execute_back_testing(history_data).await;
         }
         Some(("download_history_kline", _sub_matches)) => {
             println!("download_history_kline");

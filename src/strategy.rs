@@ -7,6 +7,7 @@ pub async fn sell(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
                     pair:&Symbol,
                 balance: f32,
                 now: u64,
+                  is_real_trading: bool,
 )
     -> Result<bool,Box<dyn std::error::Error>>{
     let pair_symbol = pair.symbol.as_str();
@@ -38,7 +39,9 @@ pub async fn sell(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
             if (shape_score >= 5 && volume_score >= 5 && recent_shape_score >= 8)
                 || take_order_pair2.get(pair_symbol).is_some()
             {
-                take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
+                if is_real_trading {
+                    take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
+                }
                 let order_info = TakeOrderInfo {
                     take_time: now,
                     price,
@@ -67,8 +70,10 @@ pub async fn sell(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
                                     pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
             }
-            info!("Take order {}",push_text );
-            notify_lark(push_text).await?;
+            info!("Take order {},now {}",push_text,now );
+            if is_real_trading {
+                notify_lark(push_text).await?;
+            }
         } else {
             info!("Have no take order signal,\
                      below is detail score:market {},shape_score {},volume_score {},recent_shape_score {}",
@@ -85,7 +90,9 @@ pub async fn sell(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
 pub async fn buy(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
                  pair_symbol:&str,
                  line_datas: &[Kline] ,
-                now: u64)
+                now: u64,
+                is_real_trading: bool,
+)
     -> Result<bool,Box<dyn std::error::Error>>{
     match take_order_pair2.get(pair_symbol) {
         None => {}
@@ -98,7 +105,11 @@ pub async fn buy(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
                     take_order(pair_symbol.to_string(), take_info.amount, "BUY".to_string()).await;
                     take_order_pair2.remove(pair_symbol);
                     let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair_symbol, price_raise_ratio);
-                    notify_lark(push_text).await?;
+                    if is_real_trading {
+                        notify_lark(push_text).await?;
+                    }else {
+                        info!("{}",push_text);
+                    }
                     return Ok(true);
                 } else if now.sub(take_info.take_time) < 1200000 {
                     //20分钟内不允许再次下单
