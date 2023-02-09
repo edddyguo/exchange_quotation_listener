@@ -26,7 +26,7 @@ pub fn get_huge_volume_bar_num(bars: &[Kline],min_volume: f32,ration: f32) -> u8
         let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
         if increase_volume > ration {
             huge_volume_bars_num += 1;
-        }else if index >= 5 && increase_volume < 2.0 { //保证最近5根，每一根都要大于min的2倍以上
+        }else if index >= 5 && increase_volume < 1.0 { //保证最近5根，每一根都要大于min的2倍以上
             return 0u8;
         }
     }

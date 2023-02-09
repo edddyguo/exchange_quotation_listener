@@ -194,8 +194,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if take_info.is_took == true {
                         let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].close_price.to_f32() / take_info.price;
                         //20X情况下：0.4个点止损,高峰之后根据20根k线之后，价格是否大于10根之前的价格5次这种情况就止盈
-                        if price_raise_ratio > 1.002
-                            || (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20].open_time > take_info.take_time && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20..]) >= 5) {
+                        if price_raise_ratio > 1.02
+                            || (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20].open_time > take_info.take_time && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20..]) >= 8) {
                             take_order(pair.symbol.clone(), take_info.amount, "BUY".to_string()).await;
                             take_order_pair2.remove(pair.symbol.as_str());
                             let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair.symbol, price_raise_ratio);

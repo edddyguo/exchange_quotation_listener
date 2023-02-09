@@ -76,9 +76,9 @@ pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
             score += 1;
         }
     }
-    if score_tmp <= 2{
+/*    if score_tmp <= 2{
         score = 0;
-    }
+    }*/
     score
 }
 
