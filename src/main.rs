@@ -21,7 +21,7 @@ use crate::ex_info::{list_all_pair, Symbol};
 use crate::filters::Root;
 use crate::kline::{get_average_info, get_current_price, recent_kline_shape_score};
 use crate::order::take_order;
-use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2};
+use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2, timestamp2date};
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -204,6 +204,7 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
     let mut index = 0;
     for (pair,klines) in history_data {
         let start_time = klines[0].open_time;
+        warn!("{}",pair.symbol.as_str());
         for bar in &klines[360..] {
             //now 其实不需要精确就去当前bar的start time +1s 即可
             let now = bar.open_time + 1000;
@@ -217,12 +218,12 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
             }
             let _ = strategy::sell(&mut take_order_pair2,&line_datas,&pair,balance,now,false).await;
             index += 1;
-            if index >= 1000 {
+            if index >= 10000 {
                 break;
             }
         }
         //test one symbol
-        break;
+        //break;
     }
 }
 
@@ -230,6 +231,8 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
 //策略：1h的k线，涨幅百分之1，量增加2倍
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}",timestamp2date(get_unix_timestamp_ms() as u64));
+    return Ok(());
     env_logger::init();
     let matches = App::new("bot")
         .version("1.0")

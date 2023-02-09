@@ -12,7 +12,7 @@ pub async fn sell(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
     -> Result<bool,Box<dyn std::error::Error>>{
     let pair_symbol = pair.symbol.as_str();
     if is_break_through_market(pair_symbol, &line_datas).await {
-        info!("found break signal：pair_symbol {}", pair_symbol);
+        warn!("found_break_signal：pair_symbol {}", pair_symbol);
         let line_datas = &line_datas[340..360];
         let shape_score = get_last_bar_shape_score(line_datas.to_owned());
         let volume_score = get_last_bar_volume_score(line_datas.to_owned());
@@ -52,7 +52,7 @@ pub async fn sell(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
                     pair_symbol.to_string(),
                     order_info,
                 );
-                push_text = format!("开空单: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                push_text = format!("take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                     pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
             } else {
@@ -66,11 +66,11 @@ pub async fn sell(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
                     pair_symbol.to_string(),
                     order_info,
                 );
-                push_text = format!("加入观察列表: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                push_text = format!("add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                     pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
             }
-            info!("Take order {},now {}",push_text,now );
+            warn!("{},now {}",push_text,now );
             if is_real_trading {
                 notify_lark(push_text).await?;
             }
@@ -104,11 +104,11 @@ pub async fn buy(take_order_pair2: &mut HashMap<String,TakeOrderInfo>,
                     || (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20].open_time > take_info.take_time && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20..]) >= 8) {
                     take_order(pair_symbol.to_string(), take_info.amount, "BUY".to_string()).await;
                     take_order_pair2.remove(pair_symbol);
-                    let push_text = format!("止损止盈平空单: market {},price_raise_ratio {}", pair_symbol, price_raise_ratio);
+                    let push_text = format!("take_buy_order: market {},price_raise_ratio {}", pair_symbol, price_raise_ratio);
                     if is_real_trading {
                         notify_lark(push_text).await?;
                     }else {
-                        info!("{}",push_text);
+                        warn!("{} ,now {}",push_text,now);
                     }
                     return Ok(true);
                 } else if now.sub(take_info.take_time) < 1200000 {

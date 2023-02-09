@@ -1,10 +1,11 @@
-use chrono::Utc;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::ops::Add;
 //use hex_literal::hex;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -39,6 +40,14 @@ pub fn get_unix_timestamp_ms() -> i64 {
     let now = Utc::now();
     now.timestamp_millis()
 }
+pub fn timestamp2date(time:u64) -> String {
+    let naive = NaiveDateTime::from_timestamp_millis(time as i64).unwrap();
+    let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
+    let newdate = datetime.format("%Y-%m-%d %H:%M:%S %f");
+    // Print the newly formatted date and time
+    newdate.to_string()
+}
+
 pub fn hmac_sha256_sign(message: &str) -> String {
     let mut mac = HmacSha256::new_from_slice(
         b"Jh9pTnrvQ6vW1cZH3pS7yaH6Pm954M6Tt5Huq8Ti1xIC2BsfFGJI0z889RXgX8Q1",

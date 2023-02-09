@@ -63,7 +63,6 @@ pub async fn load_history_data(month: u8) -> HashMap<Symbol, Vec<Kline>>{
         .for_each(|x| {
             let arc_datas = arc_datas.clone();
             let file_name = format!("{}/{}-1m-2023-{:0>2}.csv", dir, x.symbol, month);
-            println!("{}", file_name);
             let mut rdr =
                 csv::ReaderBuilder::new().has_headers(false).from_path(file_name).unwrap();
             let mut symbol_klines = Vec::new();
