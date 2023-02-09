@@ -12,6 +12,7 @@ mod kline;
 mod order;
 mod utils;
 mod strategy;
+mod history_data;
 
 use crate::account::get_usdt_balance;
 use crate::bar::{get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num};
@@ -28,6 +29,7 @@ use std::error::Error;
 use std::ops::{Div, Mul, Sub};
 use log::{debug, error, log_enabled, info, Level};
 use clap::{App, ArgMatches};
+use crate::history_data::{download_history_data, load_history_data};
 
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
@@ -218,17 +220,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .get_matches();
     match matches.subcommand() {
-        Some(("real_trading", sub_matches)) => {
+        Some(("real_trading", _sub_matches)) => {
             println!("real_trading");
+            //excute_real_trading().await;
         }
-        Some(("back_testing", sub_matches)) => {
+        Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
+            load_history_data(1).await;
         }
-        Some(("download_history_kline", sub_matches)) => {
+        Some(("download_history_kline", _sub_matches)) => {
             println!("download_history_kline");
+            download_history_data().await
         }
         _ => {}
     }
-    //excute_real_trading().await;
     Ok(())
 }
