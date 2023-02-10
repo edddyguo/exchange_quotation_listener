@@ -106,9 +106,8 @@ pub async fn buy(
                     .to_f32()
                     / take_info.price;
                 //20X情况下：0.4个点止损,高峰之后根据20根k线之后，价格是否大于10根之前的价格5次这种情况就止盈
-                if price_raise_ratio > 1.05
-                    || (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20].open_time > take_info.take_time
-                        && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20..]) >= 6)
+                if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20].open_time > take_info.take_time
+                        && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 20..]) >= 6
                 {
                     let push_text = format!(
                         "take_buy_order: market {},price_raise_ratio {}",

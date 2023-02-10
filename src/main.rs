@@ -235,6 +235,9 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
+            if index <= 26000 {
+                continue;
+            }
             assert_eq!(bar.open_time, line_datas[359].open_time);
             match strategy::buy(
                 &mut take_order_pair,
@@ -252,12 +255,13 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
                 Err(error) => {warn!("{}",error.to_string())}
             }
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
-            if index >= 10000 {
+            if index >= 40000 {
                 break;
             }
         }
         //test one symbol
         //break;
+        warn!("total_profit {}",total_profit);
     }
     warn!("total_profit {}",total_profit);
 }
