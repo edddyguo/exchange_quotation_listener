@@ -149,13 +149,13 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     ",
         market, recent_price_increase_rate, recent_huge_volume_bars_num
     );
-    /*   warn!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
+    info!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
     ,market
     ,timestamp2date(line_datas[0].open_time)
     ,timestamp2date(line_datas[359].open_time)
     ,recent_price_increase_rate
-    ,recent_huge_volume_bars_num);*/
-    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5 {
+    ,recent_huge_volume_bars_num);
+    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 4 {
         return true;
     }
     false
@@ -206,10 +206,10 @@ pub async fn excute_real_trading() {
             )
             .await
             {
-                Ok(true) => {
+                Ok((true,_)) => {
                     continue;
                 }
-                Ok(false) => {}
+                Ok((false,_)) => {}
                 Err(_) => {}
             }
             let _ = strategy::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
@@ -225,9 +225,10 @@ pub async fn excute_real_trading() {
 pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
     let balance = 10.0;
     let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
+    let mut total_profit = 0.0;
     for (pair, klines) in history_data {
         warn!("{}", pair.symbol.as_str());
-        /*        if !pair.symbol.contains("HOOK") {
+/*        if !pair.symbol.contains("HOOK") {
             continue;
         }*/
         let mut index = 0;
@@ -243,11 +244,12 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
             )
             .await
             {
-                Ok(true) => {
+                Ok((true,profit)) => {
+                    total_profit += profit;
                     continue;
                 }
-                Ok(false) => {}
-                Err(_) => {}
+                Ok((false,_)) => {}
+                Err(error) => {warn!("{}",error.to_string())}
             }
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
             if index >= 10000 {
@@ -257,6 +259,7 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
         //test one symbol
         //break;
     }
+    warn!("total_profit {}",total_profit);
 }
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions

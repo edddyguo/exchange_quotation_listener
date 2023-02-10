@@ -73,12 +73,7 @@ pub async fn sell(
                                     pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
             }
-            warn!(
-                "{},now {},bar {:?}",
-                push_text,
-                timestamp2date(now),
-                broken_line_datas[19]
-            );
+            warn!("now {} , {}",timestamp2date(now),push_text);
             if is_real_trading {
                 notify_lark(push_text).await?;
             }
@@ -94,13 +89,13 @@ pub async fn sell(
     Ok(false)
 }
 
-//执行平单策略，并且返回是否跳过
+//执行平单策略，并且返回是否继续和收益
 pub async fn buy(
     take_order_pair2: &mut HashMap<String, TakeOrderInfo>,
     pair_symbol: &str,
     line_datas: &[Kline],
     is_real_trading: bool,
-) -> Result<bool, Box<dyn std::error::Error>> {
+) -> Result<(bool,f32), Box<dyn std::error::Error>> {
     let now = line_datas[359].open_time + 1000;
     match take_order_pair2.get(pair_symbol) {
         None => {}
@@ -126,24 +121,19 @@ pub async fn buy(
                             .await;
                         notify_lark(push_text).await?;
                     } else {
-                        warn!(
-                            "{} ,now {}, {:?}",
-                            push_text,
-                            timestamp2date(now),
-                            line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
-                        );
+                        warn!("now {} , {}",timestamp2date(now),push_text);
                     }
                     take_order_pair2.remove(pair_symbol);
-                    return Ok(true);
+                    return Ok((true,1.0 - price_raise_ratio));
                 } else if now.sub(take_info.take_time) < 1200000 {
                     //20分钟内不允许再次下单
-                    return Ok(true);
+                    return Ok((true,0.0));
                 } else {
                 }
             } else {
                 //加入观察列表五分钟内不在观察，40分钟内仍没有二次拉起的则将其移除观察列表
                 if now.sub(take_info.take_time) < 300000 {
-                    return Ok(true);
+                    return Ok((true,0.0));
                 } else if now.sub(take_info.take_time) > 1200000 {
                     take_order_pair2.remove(pair_symbol);
                 } else {
@@ -151,5 +141,5 @@ pub async fn buy(
             }
         }
     }
-    Ok(false)
+    Ok((false,0.0))
 }
