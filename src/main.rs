@@ -126,18 +126,24 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     let broken_klines = &line_datas[349..=358];
     assert_eq!(recent_klines.len(), 351);
     assert_eq!(broken_klines.len(), 10);
-
     let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
     //价格以当前high为准
     let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].high_price.to_f32();
 
     //交易量要大部分bar都符合要求
     let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines, recent_average_volume, INCREASE_VOLUME_LEVEL2);
+    //let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines, recent_average_volume, 1.0);
 
     let recent_price_increase_rate = (current_price - recent_average_price).div(recent_average_price);
 
     info!("judge_break_signal market {},recent_price_increase_rate {},recent_huge_volume_bars_num {}
     ",market,recent_price_increase_rate,recent_huge_volume_bars_num);
+ /*   warn!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
+        ,market
+        ,timestamp2date(line_datas[0].open_time)
+        ,timestamp2date(line_datas[359].open_time)
+        ,recent_price_increase_rate
+        ,recent_huge_volume_bars_num);*/
     if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5
     {
         return true;
@@ -199,16 +205,15 @@ pub async fn excute_real_trading() {
 }
 
 pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
-    let balance = get_usdt_balance().await;
+    let balance = 10.0;
     let mut take_order_pair2: HashMap<String, TakeOrderInfo> = HashMap::new();
-    let mut index = 0;
     for (pair,klines) in history_data {
-        let start_time = klines[0].open_time;
         warn!("{}",pair.symbol.as_str());
-        for bar in &klines[360..] {
+        let mut index = 0;
+        for bar in &klines[359..] {
             //now 其实不需要精确就去当前bar的start time +1s 即可
-            let now = bar.open_time + 1000;
             let line_datas= &klines[index..(index+360)];
+            let now = bar.open_time + 1000;
             match strategy::buy(&mut take_order_pair2, pair.symbol.as_str(), &line_datas, now,false).await {
                 Ok(true) => {
                     continue;
@@ -218,7 +223,7 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
             }
             let _ = strategy::sell(&mut take_order_pair2,&line_datas,&pair,balance,now,false).await;
             index += 1;
-            if index >= 10000 {
+            if index >= 1000 {
                 break;
             }
         }
@@ -232,7 +237,6 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}",timestamp2date(get_unix_timestamp_ms() as u64));
-    return Ok(());
     env_logger::init();
     let matches = App::new("bot")
         .version("1.0")
