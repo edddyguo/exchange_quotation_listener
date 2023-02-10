@@ -24,7 +24,7 @@ use crate::constant::{
 };
 use crate::ex_info::{list_all_pair, Symbol};
 use crate::filters::Root;
-use crate::history_data::{download_history_data, load_history_data};
+use crate::history_data::{download_history_data, load_history_data, load_history_data_by_pair};
 use crate::kline::{get_average_info, get_current_price, recent_kline_shape_score};
 use crate::order::take_order;
 use crate::utils::{get_unix_timestamp_ms, timestamp2date, MathOperation, MathOperation2};
@@ -228,9 +228,6 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
     let mut total_profit = 0.0;
     for (pair, klines) in history_data {
         warn!("{}", pair.symbol.as_str());
-/*        if !pair.symbol.contains("HOOK") {
-            continue;
-        }*/
         let mut index = 0;
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
@@ -266,6 +263,55 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
     warn!("total_profit {}",total_profit);
 }
 
+pub async fn execute_back_testing2() {
+    let balance = 10.0;
+    let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
+    let all_pairs = list_all_pair().await;
+    let mut total_profit = 0.0;
+    for pair in all_pairs {
+        if pair.symbol.contains("HNT") {
+            continue;
+        }
+        let klines = load_history_data_by_pair(&pair.symbol,1).await;
+        warn!("{}", pair.symbol.as_str());
+        /*        if !pair.symbol.contains("HOOK") {
+                    continue;
+                }*/
+        let mut index = 0;
+        for bar in &klines[359..] {
+            let line_datas = &klines[index..(index + 360)];
+            index += 1;
+            if index <= 40000 {
+                continue;
+            }
+            assert_eq!(bar.open_time, line_datas[359].open_time);
+            match strategy::buy(
+                &mut take_order_pair,
+                pair.symbol.as_str(),
+                &line_datas,
+                false,
+            )
+                .await
+            {
+                Ok((true,profit)) => {
+                    total_profit += profit;
+                    continue;
+                }
+                Ok((false,_)) => {}
+                Err(error) => {warn!("{}",error.to_string())}
+            }
+            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            if index >= 50000 {
+                break;
+            }
+        }
+        //test one symbol
+        //break;
+        warn!("total_profit {}",total_profit);
+    }
+    warn!("total_profit {}",total_profit);
+}
+
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
 //策略：1h的k线，涨幅百分之1，量增加2倍
 #[tokio::main]
@@ -277,6 +323,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .about("Does awesome things")
         .subcommand(App::new("real_trading"))
         .subcommand(App::new("back_testing"))
+        .subcommand(App::new("back_testing2"))
         .subcommand(App::new("download_history_kline"))
         .get_matches();
     match matches.subcommand() {
@@ -288,6 +335,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("back_testing");
             let history_data = load_history_data(1).await;
             execute_back_testing(history_data).await;
+        }
+        Some(("back_testing2", _sub_matches)) => {
+            println!("back_testing2");
+            execute_back_testing2().await;
         }
         Some(("download_history_kline", _sub_matches)) => {
             println!("download_history_kline");
