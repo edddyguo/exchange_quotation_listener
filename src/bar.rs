@@ -1,18 +1,15 @@
 use crate::utils::MathOperation2;
 use crate::Kline;
+use log::{debug, error, info, log_enabled, Level};
 use std::ops::Div;
-use log::{debug, error, log_enabled, info, Level};
-
-
-
-
 
 ///根据最近10根的k线中是否出现2根大于index-5的情况来决定是否平仓
-pub fn get_raise_bar_num(bars: &[Kline]) -> u8{
-    assert_eq!(bars.len(),20);
+pub fn get_raise_bar_num(bars: &[Kline]) -> u8 {
+    assert_eq!(bars.len(), 20);
     let mut num = 0u8;
-    for (index,bar) in bars.iter().enumerate() {
-        if index >= 10 && bar.close_price > bars[index - 10].close_price{
+    for (index, bar) in bars.iter().enumerate() {
+        if index >= 10 && bar.close_price > bars[index - 10].close_price {
+            //warn!("index {} ,bar.close_price {} > bars[index - 10].close_price {}",index,bar.close_price, bars[index - 10].close_price);
             num += 1;
         }
     }
@@ -20,13 +17,14 @@ pub fn get_raise_bar_num(bars: &[Kline]) -> u8{
 }
 
 //获取k线中巨量交易的k线
-pub fn get_huge_volume_bar_num(bars: &[Kline],min_volume: f32,ration: f32) -> u8{
+pub fn get_huge_volume_bar_num(bars: &[Kline], min_volume: f32, ration: f32) -> u8 {
     let mut huge_volume_bars_num = 0;
-    for (index,bar) in bars.iter().enumerate() {
+    for (index, bar) in bars.iter().enumerate() {
         let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
         if increase_volume > ration {
             huge_volume_bars_num += 1;
-        }else if index >= 5 && increase_volume < 1.0 { //保证最近5根，每一根都要大于min的2倍以上
+        } else if index >= 5 && increase_volume < 1.0 {
+            //保证最近5根，每一根都要大于min的2倍以上
             return 0u8;
         }
     }
@@ -46,22 +44,22 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     //阴线
     if last_bar.open_price.to_f32() > last_bar.close_price.to_f32() {
         score += 1;
-        score_detail = format!("{},A:+1",score_detail);
+        score_detail = format!("{},A:+1", score_detail);
     }
     //收尾比之前低
     if last_bar.close_price.to_f32() < pre_last_bar.close_price.to_f32() {
         score += 1;
-        score_detail = format!("{},B:+1",score_detail);
+        score_detail = format!("{},B:+1", score_detail);
     }
     //当前有触顶部
     if last_bar.high_price.to_f32() > pre_last_bar.high_price.to_f32() {
         score += 1;
-        score_detail = format!("{},C:+1",score_detail);
+        score_detail = format!("{},C:+1", score_detail);
     }
 
     //击穿上一根的启动价格
     //todo: 和B项的判断是否重复了？
-/*    if last_bar.close_price.to_f32() < pre_last_bar.open_price.to_f32() {
+    /*    if last_bar.close_price.to_f32() < pre_last_bar.open_price.to_f32() {
         score += 1;
         score_detail = format!("{},D:+1",score_detail);
     }*/
@@ -69,7 +67,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     //最后一根的长度大于前一根
     if last_bar_len / pre_last_bar_len > 1.0 {
         score += 1;
-        score_detail = format!("{},E:+1",score_detail);
+        score_detail = format!("{},E:+1", score_detail);
     }
 
     //如果是上吊尾形态+2
@@ -82,21 +80,21 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     let diaowei_up_distance = last_bar.high_price.to_f32() - last_bar.close_price.to_f32();
     let diaowei_down_distance = last_bar.close_price.to_f32() - last_bar.low_price.to_f32();
 
-    if diaowei_down_distance == 0.0 ||  diaowei_up_distance / diaowei_down_distance > 3.0 {
+    if diaowei_down_distance == 0.0 || diaowei_up_distance / diaowei_down_distance > 3.0 {
         score += 3;
-        score_detail = format!("{},F:+2",score_detail);
+        score_detail = format!("{},F:+2", score_detail);
         //如果open等于high，而且close不等于low，则可能是有抄底资金进入,谨慎打分
-    } else if diaowei_up_distance / diaowei_down_distance > 2.0  {
+    } else if diaowei_up_distance / diaowei_down_distance > 2.0 {
         score += 1;
-        score_detail = format!("{},F:+1",score_detail);
-    } else if diaowei_up_distance / diaowei_down_distance <= 1.0{
+        score_detail = format!("{},F:+1", score_detail);
+    } else if diaowei_up_distance / diaowei_down_distance <= 1.0 {
         score += 0;
-        score_detail = format!("{},F:+0",score_detail);
-    }else {
+        score_detail = format!("{},F:+0", score_detail);
+    } else {
         score = 0;
-        score_detail = format!("{},F:=0",score_detail);
+        score_detail = format!("{},F:=0", score_detail);
     }
-    info!("score_detail {}",score_detail);
+    info!("score_detail {}", score_detail);
     score
 }
 

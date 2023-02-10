@@ -31,7 +31,7 @@ pub struct Asset {
     pub auto_asset_exchange: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize,Eq, Hash)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Symbol {
     pub symbol: String,
@@ -60,7 +60,7 @@ pub struct Symbol {
     pub time_in_force: Vec<String>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize,Eq,Hash)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Filter {
     pub min_price: Option<String>,

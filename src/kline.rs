@@ -1,10 +1,10 @@
-use std::ops::Div;
 use crate::{try_get, Kline, MathOperation2};
 /// 算出来对应的k线形态和做空信号得分
 //GET /fapi/v1/ticker/price
 //symbol	STRING	NO	交易对
 use serde::Deserialize;
 use serde::Serialize;
+use std::ops::Div;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,7 +14,7 @@ pub struct Price {
     pub time: i64,
 }
 
-async fn try_get2(kline_url: String) -> Price{
+async fn try_get2(kline_url: String) -> Price {
     let mut line_data;
     loop {
         match reqwest::get(&kline_url).await {
@@ -76,19 +76,19 @@ pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
             score += 1;
         }
     }
-/*    if score_tmp <= 2{
+    /*    if score_tmp <= 2{
         score = 0;
     }*/
     score
 }
 
 //获取数据的平均价格和成交量
-pub fn get_average_info(klines: &[Kline]) -> (f32,f32){
+pub fn get_average_info(klines: &[Kline]) -> (f32, f32) {
     let mut klines = klines.to_owned();
-    klines.sort_by(|a,b| a.volume.to_f32().partial_cmp(&b.volume.to_f32()).unwrap());
+    klines.sort_by(|a, b| a.volume.to_f32().partial_cmp(&b.volume.to_f32()).unwrap());
     let len = klines.len();
     //剔除最大的那根
-    let klines = &klines[0..len-1];
+    let klines = &klines[0..len - 1];
 
     let average_volume = klines
         .iter()
@@ -101,7 +101,7 @@ pub fn get_average_info(klines: &[Kline]) -> (f32,f32){
         .map(|x| x.close_price.parse::<f32>().unwrap())
         .sum::<f32>()
         .div(klines.len() as f32);
-    (average_price,average_volume)
+    (average_price, average_volume)
 }
 
 #[cfg(test)]

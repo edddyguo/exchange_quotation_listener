@@ -60,6 +60,6 @@ mod tests {
         //default lever ratio is 20x
         let taker_amount = balance.mul(20.0).div(10.0).div(price).to_fix(1);
         println!("amount {}", taker_amount);
-        take_order("RLCUSDT".to_string(), taker_amount,"SELL".to_string()).await;
+        take_order("RLCUSDT".to_string(), taker_amount, "SELL".to_string()).await;
     }
 }

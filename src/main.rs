@@ -8,29 +8,33 @@ mod bar;
 mod constant;
 mod ex_info;
 mod filters;
+mod history_data;
 mod kline;
 mod order;
-mod utils;
 mod strategy;
-mod history_data;
+mod utils;
 
 use crate::account::get_usdt_balance;
-use crate::bar::{get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num};
-use crate::constant::{BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL};
+use crate::bar::{
+    get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num,
+};
+use crate::constant::{
+    BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1,
+    INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
+};
 use crate::ex_info::{list_all_pair, Symbol};
 use crate::filters::Root;
+use crate::history_data::{download_history_data, load_history_data};
 use crate::kline::{get_average_info, get_current_price, recent_kline_shape_score};
 use crate::order::take_order;
-use crate::utils::{get_unix_timestamp_ms, MathOperation, MathOperation2, timestamp2date};
+use crate::utils::{get_unix_timestamp_ms, timestamp2date, MathOperation, MathOperation2};
 use chrono::prelude::*;
+use clap::{App, ArgMatches};
+use log::{debug, error, info, log_enabled, Level};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::{Div, Mul, Sub};
-use log::{debug, error, log_enabled, info, Level};
-use clap::{App, ArgMatches};
-use crate::history_data::{download_history_data, load_history_data};
-
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -128,24 +132,30 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     assert_eq!(broken_klines.len(), 10);
     let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
     //价格以当前high为准
-    let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].high_price.to_f32();
+    let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
+        .high_price
+        .to_f32();
 
     //交易量要大部分bar都符合要求
-    let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines, recent_average_volume, INCREASE_VOLUME_LEVEL2);
+    let mut recent_huge_volume_bars_num =
+        get_huge_volume_bar_num(broken_klines, recent_average_volume, INCREASE_VOLUME_LEVEL2);
     //let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines, recent_average_volume, 1.0);
 
-    let recent_price_increase_rate = (current_price - recent_average_price).div(recent_average_price);
+    let recent_price_increase_rate =
+        (current_price - recent_average_price).div(recent_average_price);
 
-    info!("judge_break_signal market {},recent_price_increase_rate {},recent_huge_volume_bars_num {}
-    ",market,recent_price_increase_rate,recent_huge_volume_bars_num);
- /*   warn!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
-        ,market
-        ,timestamp2date(line_datas[0].open_time)
-        ,timestamp2date(line_datas[359].open_time)
-        ,recent_price_increase_rate
-        ,recent_huge_volume_bars_num);*/
-    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5
-    {
+    info!(
+        "judge_break_signal market {},recent_price_increase_rate {},recent_huge_volume_bars_num {}
+    ",
+        market, recent_price_increase_rate, recent_huge_volume_bars_num
+    );
+    /*   warn!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
+    ,market
+    ,timestamp2date(line_datas[0].open_time)
+    ,timestamp2date(line_datas[359].open_time)
+    ,recent_price_increase_rate
+    ,recent_huge_volume_bars_num);*/
+    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 5 {
         return true;
     }
     false
@@ -174,7 +184,6 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-
 pub async fn excute_real_trading() {
     let all_pairs = list_all_pair().await;
     let balance = get_usdt_balance().await;
@@ -183,19 +192,28 @@ pub async fn excute_real_trading() {
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
             let kline_url = format!(
                 "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
-                pair.symbol.as_str(), KLINE_NUM_FOR_FIND_SIGNAL
+                pair.symbol.as_str(),
+                KLINE_NUM_FOR_FIND_SIGNAL
             );
             let line_datas = try_get(kline_url).await;
             let now = get_unix_timestamp_ms() as u64;
             //todo: 目前人工维护已下单数据，后期考虑链上获取
-            match strategy::buy(&mut take_order_pair2, pair.symbol.as_str(), &line_datas, now,true).await {
+            match strategy::buy(
+                &mut take_order_pair2,
+                pair.symbol.as_str(),
+                &line_datas,
+                true,
+            )
+            .await
+            {
                 Ok(true) => {
                     continue;
                 }
                 Ok(false) => {}
                 Err(_) => {}
             }
-            let _ = strategy::sell(&mut take_order_pair2,&line_datas,&pair,balance,now,true).await;
+            let _ = strategy::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
+            //todo: wait util next kline generate
         }
         info!("complete listen all pairs");
         //保证每次顶多一次下单、平仓
@@ -204,26 +222,35 @@ pub async fn excute_real_trading() {
     }
 }
 
-pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
+pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
     let balance = 10.0;
-    let mut take_order_pair2: HashMap<String, TakeOrderInfo> = HashMap::new();
-    for (pair,klines) in history_data {
-        warn!("{}",pair.symbol.as_str());
+    let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
+    for (pair, klines) in history_data {
+        warn!("{}", pair.symbol.as_str());
+        /*        if !pair.symbol.contains("HOOK") {
+            continue;
+        }*/
         let mut index = 0;
         for bar in &klines[359..] {
-            //now 其实不需要精确就去当前bar的start time +1s 即可
-            let line_datas= &klines[index..(index+360)];
-            let now = bar.open_time + 1000;
-            match strategy::buy(&mut take_order_pair2, pair.symbol.as_str(), &line_datas, now,false).await {
+            let line_datas = &klines[index..(index + 360)];
+            index += 1;
+            assert_eq!(bar.open_time, line_datas[359].open_time);
+            match strategy::buy(
+                &mut take_order_pair,
+                pair.symbol.as_str(),
+                &line_datas,
+                false,
+            )
+            .await
+            {
                 Ok(true) => {
                     continue;
                 }
                 Ok(false) => {}
                 Err(_) => {}
             }
-            let _ = strategy::sell(&mut take_order_pair2,&line_datas,&pair,balance,now,false).await;
-            index += 1;
-            if index >= 1000 {
+            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            if index >= 10000 {
                 break;
             }
         }
@@ -236,20 +263,14 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol,Vec<Kline>>) {
 //策略：1h的k线，涨幅百分之1，量增加2倍
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}",timestamp2date(get_unix_timestamp_ms() as u64));
+    println!("{}", timestamp2date(get_unix_timestamp_ms() as u64));
     env_logger::init();
     let matches = App::new("bot")
         .version("1.0")
         .about("Does awesome things")
-        .subcommand(
-            App::new("real_trading")
-        )
-        .subcommand(
-            App::new("back_testing")
-        )
-        .subcommand(
-            App::new("download_history_kline")
-        )
+        .subcommand(App::new("real_trading"))
+        .subcommand(App::new("back_testing"))
+        .subcommand(App::new("download_history_kline"))
         .get_matches();
     match matches.subcommand() {
         Some(("real_trading", _sub_matches)) => {
