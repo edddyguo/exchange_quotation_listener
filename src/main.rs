@@ -273,7 +273,7 @@ pub async fn execute_back_testing2() {
             continue;
         }
         let klines = load_history_data_by_pair(&pair.symbol,1).await;
-        warn!("{}", pair.symbol.as_str());
+        warn!("--{}", pair.symbol.as_str());
         /*        if !pair.symbol.contains("HOOK") {
                     continue;
                 }*/
@@ -281,7 +281,7 @@ pub async fn execute_back_testing2() {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
-            if index <= 40000 {
+            if index <= 20000 {
                 continue;
             }
             assert_eq!(bar.open_time, line_datas[359].open_time);
@@ -300,8 +300,8 @@ pub async fn execute_back_testing2() {
                 Ok((false,_)) => {}
                 Err(error) => {warn!("{}",error.to_string())}
             }
-            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
-            if index >= 50000 {
+            let _ = strategy::sell2(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            if index >= 40000 {
                 break;
             }
         }
