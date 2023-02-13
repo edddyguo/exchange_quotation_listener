@@ -87,6 +87,7 @@ pub struct TakeOrderInfo {
     //如果没下单，则以30分钟内尝试检测是否再次拉升
     price: f32,
     amount: f32,
+    top_bar: Kline,
     is_took: bool, //是否已经下单
 }
 
@@ -126,15 +127,21 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
 async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     assert_eq!(line_datas.len(), KLINE_NUM_FOR_FIND_SIGNAL);
     //选351个，后边再剔除量最大的
-    let mut recent_klines = line_datas[0..=350].to_owned();
-    let broken_klines = &line_datas[349..=358];
-    assert_eq!(recent_klines.len(), 351);
-    assert_eq!(broken_klines.len(), 10);
+    let mut recent_klines = line_datas[0..=340].to_owned();
+    let broken_klines = &line_datas[339..=358];
+    assert_eq!(recent_klines.len(), 341);
+    assert_eq!(broken_klines.len(), 20);
     let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
     //价格以当前high为准
     let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
         .high_price
         .to_f32();
+    //最近2小时，交易量不能有大于准顶量两倍的
+    for bar in &line_datas[240..] {
+        if bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32(){
+         return false;
+        }
+    }
 
     //交易量要大部分bar都符合要求
     let mut recent_huge_volume_bars_num =
@@ -224,19 +231,24 @@ pub async fn excute_real_trading() {
 
 pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
     let balance = 10.0;
+    let mut txs = 0;
     let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
     let mut total_profit = 0.0;
     for (pair, klines) in history_data {
         warn!("{}", pair.symbol.as_str());
-        let mut index = 0;
+/*        if !pair.symbol.contains("MAGIC") {
+            continue;
+        }
+*/
+            let mut index = 0;
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
-            if index <= 26000 {
+            if index <= 40000 {
                 continue;
             }
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            match strategy::buy(
+            match strategy::buy3(
                 &mut take_order_pair,
                 pair.symbol.as_str(),
                 &line_datas,
@@ -246,21 +258,25 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
             {
                 Ok((true,profit)) => {
                     total_profit += profit;
+                    if profit != 0.0 {
+                        total_profit -= 0.0008;
+                        txs += 2;
+                    }
                     continue;
                 }
                 Ok((false,_)) => {}
                 Err(error) => {warn!("{}",error.to_string())}
             }
-            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
-            if index >= 40000 {
+            let _ = strategy::sell3(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            if index >= 50000 {
                 break;
             }
         }
         //test one symbol
         //break;
-        warn!("total_profit {}",total_profit);
+        warn!("total_profit {},total txs {}",total_profit,txs);
     }
-    warn!("total_profit {}",total_profit);
+    warn!("total_profit {},total txs {}",total_profit,txs);
 }
 
 pub async fn execute_back_testing2() {
@@ -281,11 +297,11 @@ pub async fn execute_back_testing2() {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
-            if index <= 20000 {
+            if index <= 30000 {
                 continue;
             }
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            match strategy::buy(
+            match strategy::buy3(
                 &mut take_order_pair,
                 pair.symbol.as_str(),
                 &line_datas,
@@ -300,7 +316,7 @@ pub async fn execute_back_testing2() {
                 Ok((false,_)) => {}
                 Err(error) => {warn!("{}",error.to_string())}
             }
-            let _ = strategy::sell2(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            let _ = strategy::sell3(&mut take_order_pair, &line_datas, &pair, balance, false).await;
             if index >= 40000 {
                 break;
             }

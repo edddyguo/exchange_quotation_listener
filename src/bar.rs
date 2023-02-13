@@ -1,7 +1,7 @@
 use crate::utils::MathOperation2;
-use crate::Kline;
+use crate::{get_average_info, Kline};
 use log::{debug, error, info, log_enabled, Level};
-use std::ops::Div;
+use std::ops::{Div, Mul};
 
 ///根据最近10根的k线中是否出现2根大于index-5的情况来决定是否平仓
 pub fn get_raise_bar_num(bars: &[Kline]) -> u8 {
@@ -18,14 +18,18 @@ pub fn get_raise_bar_num(bars: &[Kline]) -> u8 {
 
 //获取k线中巨量交易的k线
 pub fn get_huge_volume_bar_num(bars: &[Kline], min_volume: f32, ration: f32) -> u8 {
+    //except the last bar
+    let (average_volume,average_price) = get_average_info(&bars[14..19]);
     let mut huge_volume_bars_num = 0;
     for (index, bar) in bars.iter().enumerate() {
         let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
-        if increase_volume > ration {
+        if index >= 10 && increase_volume > ration {
             huge_volume_bars_num += 1;
-        } else if index >= 5 && increase_volume < 1.0 {
-            //保证最近5根，每一根都要大于min的2倍以上
+            //todo: 保证最近10根里面每个都至少大于平均值的十分之一
+        } else if index >= 10 && bar.volume.to_f32().mul(5.0) < average_volume {
+            //保证最近20根，每一根都要大于min的2倍以上
             return 0u8;
+            //保证20根里面没有比当前volume大于2倍的，扩展
         }
     }
     huge_volume_bars_num
@@ -41,11 +45,6 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
 
     let mut score = 0;
     let mut score_detail = "score_detail: ".to_string();
-    //阴线
-    if last_bar.open_price.to_f32() > last_bar.close_price.to_f32() {
-        score += 1;
-        score_detail = format!("{},A:+1", score_detail);
-    }
     //收尾比之前低
     if last_bar.close_price.to_f32() < pre_last_bar.close_price.to_f32() {
         score += 1;
@@ -68,6 +67,14 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     if last_bar_len / pre_last_bar_len > 1.0 {
         score += 1;
         score_detail = format!("{},E:+1", score_detail);
+    }
+
+    //阴线
+    if last_bar.open_price.to_f32() > last_bar.close_price.to_f32() {
+        score += 1;
+        score_detail = format!("{},A:+1", score_detail);
+    }else{
+        score = 0;
     }
 
     //如果是上吊尾形态+2
