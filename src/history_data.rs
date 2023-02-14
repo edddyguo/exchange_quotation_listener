@@ -33,10 +33,10 @@ pub async fn download_history_data() {
     let all_pairs = list_all_pair().await;
     let url = "https://data.binance.vision/data/spot/monthly/klines".to_string();
     all_pairs.par_iter().for_each(|pair| {
-        for month in 1..=1 {
-            let file_name = format!("{}/{}-1m-2023-{:0>2}.zip", dir, pair.symbol, month);
+        for month in 1..=4 {
+            let file_name = format!("{}/{}-1m-2022-{:0>2}.zip", dir, pair.symbol, month);
             let url = format!(
-                "{}/{}/1m/{}-1m-2023-{:0>2}.zip",
+                "{}/{}/1m/{}-1m-2022-{:0>2}.zip",
                 url, pair.symbol, pair.symbol, month
             );
             let rt = Runtime::new().unwrap();
@@ -65,20 +65,24 @@ pub async fn load_history_data(month: u8) -> HashMap<Symbol, Vec<Kline>> {
         .filter(|x| x.symbol != "HNTUSDT")
         .for_each(|x| {
             let arc_datas = arc_datas.clone();
-            let file_name = format!("{}/{}-1m-2023-{:0>2}.csv", dir, x.symbol, month);
-            let mut rdr = csv::ReaderBuilder::new()
+            let file_name = format!("{}/{}-1m-2022-{:0>2}.csv", dir, x.symbol, month);
+            let mut rdr_res = csv::ReaderBuilder::new()
                 .has_headers(false)
-                .from_path(file_name)
-                .unwrap();
-            let mut symbol_klines = Vec::new();
-            for result in rdr.deserialize() {
-                let record: Kline = result.unwrap();
-                symbol_klines.push(record);
+                .from_path(file_name);
+            match rdr_res {
+                Ok(mut rdr) => {
+                    let mut symbol_klines = Vec::new();
+                    for result in rdr.deserialize() {
+                        let record: Kline = result.unwrap();
+                        symbol_klines.push(record);
+                    }
+                    arc_datas
+                        .write()
+                        .unwrap()
+                        .insert(x.to_owned(), symbol_klines);
+                }
+                Err(_) => {}
             }
-            arc_datas
-                .write()
-                .unwrap()
-                .insert(x.to_owned(), symbol_klines);
         });
     //println!("{:?}", arc_datas.read().unwrap());
     let data = arc_datas.read().unwrap().deref().to_owned();

@@ -229,9 +229,9 @@ pub async fn excute_real_trading() {
     }
 }
 
-pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
+pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> (f32,u32){
     let balance = 10.0;
-    let mut txs = 0;
+    let mut txs = 0u32;
     let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
     let mut total_profit = 0.0;
     for (pair, klines) in history_data {
@@ -244,9 +244,6 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
-            if index <= 40000 {
-                continue;
-            }
             assert_eq!(bar.open_time, line_datas[359].open_time);
             match strategy::buy3(
                 &mut take_order_pair,
@@ -276,7 +273,7 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) {
         //break;
         warn!("total_profit {},total txs {}",total_profit,txs);
     }
-    warn!("total_profit {},total txs {}",total_profit,txs);
+    return (total_profit,txs);
 }
 
 pub async fn execute_back_testing2() {
@@ -325,7 +322,6 @@ pub async fn execute_back_testing2() {
         //break;
         warn!("total_profit {}",total_profit);
     }
-    warn!("total_profit {}",total_profit);
 }
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
@@ -349,8 +345,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
-            let history_data = load_history_data(1).await;
-            execute_back_testing(history_data).await;
+            for month in 1..=7 {
+                let history_data = load_history_data(month).await;
+                let (total_profit,txs) = execute_back_testing(history_data).await;
+                warn!("month {} total_profit {},total txs {}",month,total_profit,txs);
+            }
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
