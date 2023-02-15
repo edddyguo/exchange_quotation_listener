@@ -13,6 +13,7 @@ mod kline;
 mod order;
 mod strategy;
 mod utils;
+mod strategy2;
 
 use crate::account::get_usdt_balance;
 use crate::bar::{
@@ -123,51 +124,6 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
     line_data
 }
 
-//是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
-async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
-    assert_eq!(line_datas.len(), KLINE_NUM_FOR_FIND_SIGNAL);
-    //选351个，后边再剔除量最大的
-    let mut recent_klines = line_datas[0..=340].to_owned();
-    let broken_klines = &line_datas[339..=358];
-    assert_eq!(recent_klines.len(), 341);
-    assert_eq!(broken_klines.len(), 20);
-    let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
-    //价格以当前high为准
-    let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
-        .high_price
-        .to_f32();
-    //最近2小时，交易量不能有大于准顶量两倍的
-    for bar in &line_datas[240..] {
-        if bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32(){
-         return false;
-        }
-    }
-
-    //交易量要大部分bar都符合要求
-    let mut recent_huge_volume_bars_num =
-        get_huge_volume_bar_num(broken_klines, recent_average_volume, INCREASE_VOLUME_LEVEL2);
-    //let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines, recent_average_volume, 1.0);
-
-    let recent_price_increase_rate =
-        (current_price - recent_average_price).div(recent_average_price);
-
-    info!(
-        "judge_break_signal market {},recent_price_increase_rate {},recent_huge_volume_bars_num {}
-    ",
-        market, recent_price_increase_rate, recent_huge_volume_bars_num
-    );
-    info!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
-    ,market
-    ,timestamp2date(line_datas[0].open_time)
-    ,timestamp2date(line_datas[359].open_time)
-    ,recent_price_increase_rate
-    ,recent_huge_volume_bars_num);
-    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 4 {
-        return true;
-    }
-    false
-}
-
 //推送消息给lark机器人
 async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error>> {
     //println!("increase_ratio {},increase_volume {}",increase_price,increase_volume);
@@ -211,12 +167,12 @@ pub async fn excute_real_trading() {
                 &line_datas,
                 true,
             )
-            .await
+                .await
             {
-                Ok((true,_)) => {
+                Ok((true, _)) => {
                     continue;
                 }
-                Ok((false,_)) => {}
+                Ok((false, _)) => {}
                 Err(_) => {}
             }
             let _ = strategy::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
@@ -229,31 +185,27 @@ pub async fn excute_real_trading() {
     }
 }
 
-pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> (f32,u32){
+pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> (f32, u32) {
     let balance = 10.0;
     let mut txs = 0u32;
     let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
     let mut total_profit = 0.0;
     for (pair, klines) in history_data {
-        warn!("{}", pair.symbol.as_str());
-/*        if !pair.symbol.contains("MAGIC") {
-            continue;
-        }
-*/
-            let mut index = 0;
+        warn!("start test {}", pair.symbol.as_str());
+        let mut index = 0;
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            match strategy::buy3(
+            match strategy2::buy(
                 &mut take_order_pair,
                 pair.symbol.as_str(),
                 &line_datas,
                 false,
             )
-            .await
+                .await
             {
-                Ok((true,profit)) => {
+                Ok((true, profit)) => {
                     total_profit += profit;
                     if profit != 0.0 {
                         total_profit -= 0.0008;
@@ -261,10 +213,10 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> 
                     }
                     continue;
                 }
-                Ok((false,_)) => {}
-                Err(error) => {warn!("{}",error.to_string())}
+                Ok((false, _)) => {}
+                Err(error) => { warn!("{}",error.to_string()) }
             }
-            let _ = strategy::sell3(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            let _ = strategy2::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
             if index >= 50000 {
                 break;
             }
@@ -273,32 +225,23 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> 
         //break;
         warn!("total_profit {},total txs {}",total_profit,txs);
     }
-    return (total_profit,txs);
+    return (total_profit, txs);
 }
 
-pub async fn execute_back_testing2() {
+pub async fn execute_back_testing2(month: u8) -> (f32, u32){
     let balance = 10.0;
+    let mut txs = 0u32;
     let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
-    let all_pairs = list_all_pair().await;
     let mut total_profit = 0.0;
-    for pair in all_pairs {
-        if pair.symbol.contains("HNT") {
-            continue;
-        }
-        let klines = load_history_data_by_pair(&pair.symbol,1).await;
-        warn!("--{}", pair.symbol.as_str());
-        /*        if !pair.symbol.contains("HOOK") {
-                    continue;
-                }*/
+    for pair in list_all_pair().await.iter() {
+        warn!("start test {}", pair.symbol.as_str());
+        let klines = load_history_data_by_pair(&pair.symbol, month).await;
         let mut index = 0;
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
-            if index <= 30000 {
-                continue;
-            }
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            match strategy::buy3(
+            match strategy2::buy(
                 &mut take_order_pair,
                 pair.symbol.as_str(),
                 &line_datas,
@@ -306,22 +249,27 @@ pub async fn execute_back_testing2() {
             )
                 .await
             {
-                Ok((true,profit)) => {
+                Ok((true, profit)) => {
                     total_profit += profit;
+                    if profit != 0.0 {
+                        total_profit -= 0.0008;
+                        txs += 2;
+                    }
                     continue;
                 }
-                Ok((false,_)) => {}
-                Err(error) => {warn!("{}",error.to_string())}
+                Ok((false, _)) => {}
+                Err(error) => { warn!("{}",error.to_string()) }
             }
-            let _ = strategy::sell3(&mut take_order_pair, &line_datas, &pair, balance, false).await;
-            if index >= 40000 {
+            let _ = strategy2::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            if index >= 50000 {
                 break;
             }
         }
         //test one symbol
         //break;
-        warn!("total_profit {}",total_profit);
+        warn!("total_profit {},total txs {}",total_profit,txs);
     }
+    return (total_profit, txs);
 }
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
@@ -345,15 +293,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
-            for month in 1..=7 {
+            for month in 12..=12 {
                 let history_data = load_history_data(month).await;
-                let (total_profit,txs) = execute_back_testing(history_data).await;
+                let (total_profit, txs) = execute_back_testing(history_data).await;
                 warn!("month {} total_profit {},total txs {}",month,total_profit,txs);
             }
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            execute_back_testing2().await;
+            for month in 1..=1 {
+                let (total_profit, txs) = execute_back_testing2(month).await;
+                warn!("month {} total_profit {},total txs {}",month,total_profit,txs);            }
         }
         Some(("download_history_kline", _sub_matches)) => {
             println!("download_history_kline");

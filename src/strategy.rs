@@ -1,6 +1,51 @@
-use crate::{get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num, is_break_through_market, notify_lark, recent_kline_shape_score, take_order, timestamp2date, Kline, MathOperation, MathOperation2, Symbol, TakeOrderInfo, KLINE_NUM_FOR_FIND_SIGNAL, get_average_info};
+use crate::{get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num, notify_lark, recent_kline_shape_score, take_order, timestamp2date, Kline, MathOperation, MathOperation2, Symbol, TakeOrderInfo, KLINE_NUM_FOR_FIND_SIGNAL, get_average_info, get_huge_volume_bar_num, INCREASE_VOLUME_LEVEL2, INCREASE_PRICE_LEVEL2};
 use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
+
+//是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
+async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
+    assert_eq!(line_datas.len(), KLINE_NUM_FOR_FIND_SIGNAL);
+    //选351个，后边再剔除量最大的
+    let mut recent_klines = line_datas[0..=340].to_owned();
+    let broken_klines = &line_datas[339..=358];
+    assert_eq!(recent_klines.len(), 341);
+    assert_eq!(broken_klines.len(), 20);
+    let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
+    //价格以当前high为准
+    let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
+        .high_price
+        .to_f32();
+    //最近2小时，交易量不能有大于准顶量两倍的
+    for bar in &line_datas[240..] {
+        if bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32(){
+            return false;
+        }
+    }
+
+    //交易量要大部分bar都符合要求
+    let mut recent_huge_volume_bars_num =
+        get_huge_volume_bar_num(broken_klines, recent_average_volume, INCREASE_VOLUME_LEVEL2);
+    //let mut recent_huge_volume_bars_num = get_huge_volume_bar_num(broken_klines, recent_average_volume, 1.0);
+
+    let recent_price_increase_rate =
+        (current_price - recent_average_price).div(recent_average_price);
+
+    info!(
+        "judge_break_signal market {},recent_price_increase_rate {},recent_huge_volume_bars_num {}
+    ",
+        market, recent_price_increase_rate, recent_huge_volume_bars_num
+    );
+    info!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
+    ,market
+    ,timestamp2date(line_datas[0].open_time)
+    ,timestamp2date(line_datas[359].open_time)
+    ,recent_price_increase_rate
+    ,recent_huge_volume_bars_num);
+    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 4 {
+        return true;
+    }
+    false
+}
 
 pub async fn sell(
     take_order_pair2: &mut HashMap<String, TakeOrderInfo>,
