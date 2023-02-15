@@ -5,7 +5,7 @@ use std::ops::{Div, Mul};
 
 ///根据最近10根的k线中是否出现2根大于index-5的情况来决定是否平仓
 pub fn get_raise_bar_num(bars: &[Kline]) -> u8 {
-    assert_eq!(bars.len(), 20);
+    assert_eq!(bars.len(), 60);
     let mut num = 0u8;
     for (index, bar) in bars.iter().enumerate() {
         if index >= 10 && bar.close_price > bars[index - 10].close_price {
@@ -26,7 +26,7 @@ pub fn get_huge_volume_bar_num(bars: &[Kline], min_volume: f32, ration: f32) -> 
         if index >= 10 && increase_volume > ration {
             huge_volume_bars_num += 1;
             //todo: 保证最近10根里面每个都至少大于平均值的十分之一
-        } else if index >= 10 && bar.volume.to_f32().mul(5.0) < average_volume {
+        } else if index >= 15 && bar.volume.to_f32().mul(5.0) < average_volume {
             //保证最近20根，每一根都要大于min的2倍以上
             return 0u8;
             //保证20根里面没有比当前volume大于2倍的，扩展

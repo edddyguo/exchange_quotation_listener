@@ -93,14 +93,19 @@ pub async fn load_history_data(month: u8) -> HashMap<Symbol, Vec<Kline>> {
 pub async fn load_history_data_by_pair(pair_symbol:&str,month: u8) -> Vec<Kline> {
     let dir = "./history_kline";
     let file_name = format!("{}/{}-1m-2023-{:0>2}.csv", dir, pair_symbol, month);
-    let mut rdr = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .from_path(file_name)
-        .unwrap();
     let mut symbol_klines = Vec::new();
-    for result in rdr.deserialize() {
-        let record: Kline = result.unwrap();
-        symbol_klines.push(record);
+
+    let mut rdr_res = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_path(file_name);
+    match rdr_res {
+        Ok(mut rdr) => {
+            for result in rdr.deserialize() {
+                let record: Kline = result.unwrap();
+                symbol_klines.push(record);
+            }
+        }
+        Err(_) => {}
     }
     symbol_klines
 }
