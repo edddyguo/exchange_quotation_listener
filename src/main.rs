@@ -236,6 +236,9 @@ pub async fn execute_back_testing2(month: u8) -> (f32, u32){
     for pair in list_all_pair().await.iter() {
         warn!("start test {}", pair.symbol.as_str());
         let klines = load_history_data_by_pair(&pair.symbol, month).await;
+        if klines.is_empty(){
+            continue;
+        }
         let mut index = 0;
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
@@ -293,7 +296,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
-            for month in 12..=12 {
+            for month in 1..=11 {
                 let history_data = load_history_data(month).await;
                 let (total_profit, txs) = execute_back_testing(history_data).await;
                 warn!("month {} total_profit {},total txs {}",month,total_profit,txs);
