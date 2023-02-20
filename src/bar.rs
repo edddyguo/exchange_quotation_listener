@@ -5,7 +5,7 @@ use std::ops::{Div, Mul};
 
 ///根据最近10根的k线中是否出现2根大于index-5的情况来决定是否平仓
 pub fn get_raise_bar_num(bars: &[Kline]) -> u8 {
-    assert_eq!(bars.len(), 60);
+    //assert_eq!(bars.len(), 60);
     let mut num = 0u8;
     for (index, bar) in bars.iter().enumerate() {
         if index >= 10 && bar.close_price > bars[index - 10].close_price {

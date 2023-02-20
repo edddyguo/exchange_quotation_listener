@@ -14,6 +14,7 @@ mod order;
 mod strategy;
 mod utils;
 mod strategy2;
+mod strategy3;
 
 use crate::account::get_usdt_balance;
 use crate::bar::{
@@ -197,7 +198,7 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> 
             let line_datas = &klines[index..(index + 360)];
             index += 1;
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            match strategy2::buy(
+            match strategy3::buy(
                 &mut take_order_pair,
                 pair.symbol.as_str(),
                 &line_datas,
@@ -216,7 +217,7 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> 
                 Ok((false, _)) => {}
                 Err(error) => { warn!("{}",error.to_string()) }
             }
-            let _ = strategy2::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            let _ = strategy3::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
             if index >= 50000 {
                 break;
             }
@@ -233,7 +234,8 @@ pub async fn execute_back_testing2(month: u8) -> (f32, u32){
     let mut txs = 0u32;
     let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
     let mut total_profit = 0.0;
-    for pair in list_all_pair().await.iter() {
+    let all_pairs = list_all_pair().await;
+    for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
         let klines = load_history_data_by_pair(&pair.symbol, month).await;
         if klines.is_empty(){
@@ -296,7 +298,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
-            for month in 1..=11 {
+            for month in 1..=12 {
                 let history_data = load_history_data(month).await;
                 let (total_profit, txs) = execute_back_testing(history_data).await;
                 warn!("month {} total_profit {},total txs {}",month,total_profit,txs);
