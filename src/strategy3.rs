@@ -78,6 +78,7 @@ pub async fn sell(
             && recent_shape_score >= 6
             && line_datas[358].open_price.to_f32() > line_datas[358].close_price.to_f32()
             && line_datas[357].close_price.to_f32() > line_datas[358].close_price.to_f32()
+            && line_datas[358].volume.to_f32().mul(3.0) > line_datas[357].volume.to_f32()
         {
             //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
             let price = line_datas[359].open_price.parse::<f32>().unwrap();

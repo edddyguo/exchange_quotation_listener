@@ -113,14 +113,15 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
                             error.to_string(),
                             res_str
                         );
+                        std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
                     }
                 }
             }
             Err(error) => {
                 warn!("reqwest get happened error {}", error.to_string());
+                std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
             }
         }
-        std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
     }
     line_data
 }
@@ -159,16 +160,13 @@ pub async fn excute_real_trading() {
                 pair.symbol.as_str(),
                 KLINE_NUM_FOR_FIND_SIGNAL
             );
+            warn!("test_0001");
             let line_datas = try_get(kline_url).await;
-            let now = get_unix_timestamp_ms() as u64;
+            warn!("test_0002");
             //todo: 目前人工维护已下单数据，后期考虑链上获取
-            match strategy::buy(
-                &mut take_order_pair2,
-                pair.symbol.as_str(),
-                &line_datas,
-                true,
-            )
-                .await
+            match strategy2::buy(&mut take_order_pair2,
+                                 pair.symbol.as_str(),
+                                 &line_datas, true).await
             {
                 Ok((true, _)) => {
                     continue;
@@ -176,13 +174,14 @@ pub async fn excute_real_trading() {
                 Ok((false, _)) => {}
                 Err(_) => {}
             }
-            let _ = strategy::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
-            //todo: wait util next kline generate
+            warn!("test_0003");
+            let _ = strategy2::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
+            warn!("test_0004");
         }
-        info!("complete listen all pairs");
-        //保证每次顶多一次下单、平仓
-        //todo: 可以更精确的堵塞，等待当前k线结束
-        std::thread::sleep(std::time::Duration::from_secs_f32(26.0));
+        //严格等待到下一分钟
+        let distance_next_minute_time = 60000 - get_unix_timestamp_ms() % 60000;
+        std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
+        warn!("complete listen all pairs,and start next minute");
     }
 }
 
@@ -229,7 +228,7 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> 
     return (total_profit, txs);
 }
 
-pub async fn execute_back_testing2(month: u8) -> (f32, u32){
+pub async fn execute_back_testing2(month: u8) -> (f32, u32) {
     let balance = 10.0;
     let mut txs = 0u32;
     let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
@@ -238,7 +237,7 @@ pub async fn execute_back_testing2(month: u8) -> (f32, u32){
     for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
         let klines = load_history_data_by_pair(&pair.symbol, month).await;
-        if klines.is_empty(){
+        if klines.is_empty() {
             continue;
         }
         let mut index = 0;
@@ -294,7 +293,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match matches.subcommand() {
         Some(("real_trading", _sub_matches)) => {
             println!("real_trading");
-            //excute_real_trading().await;
+            excute_real_trading().await;
         }
         Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
@@ -308,7 +307,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("back_testing2");
             for month in 1..=1 {
                 let (total_profit, txs) = execute_back_testing2(month).await;
-                warn!("month {} total_profit {},total txs {}",month,total_profit,txs);            }
+                warn!("month {} total_profit {},total txs {}",month,total_profit,txs);
+            }
         }
         Some(("download_history_kline", _sub_matches)) => {
             println!("download_history_kline");
