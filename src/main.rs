@@ -160,9 +160,7 @@ pub async fn excute_real_trading() {
                 pair.symbol.as_str(),
                 KLINE_NUM_FOR_FIND_SIGNAL
             );
-            warn!("test_0001");
             let line_datas = try_get(kline_url).await;
-            warn!("test_0002");
             //todo: 目前人工维护已下单数据，后期考虑链上获取
             match strategy2::buy(&mut take_order_pair2,
                                  pair.symbol.as_str(),
@@ -174,9 +172,7 @@ pub async fn excute_real_trading() {
                 Ok((false, _)) => {}
                 Err(_) => {}
             }
-            warn!("test_0003");
             let _ = strategy2::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
-            warn!("test_0004");
         }
         //严格等待到下一分钟
         let distance_next_minute_time = 60000 - get_unix_timestamp_ms() % 60000;

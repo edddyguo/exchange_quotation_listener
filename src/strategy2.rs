@@ -16,8 +16,10 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         .high_price
         .to_f32();
     //最近2小时，交易量不能有大于准顶量1.5倍的
-    for bar in &line_datas[..358] {
-        if bar.volume.to_f32().div(1.5) > line_datas[358].volume.to_f32(){
+    for (index,bar) in line_datas[..358].iter().enumerate() {
+        if index <= 340 && bar.volume.to_f32().div(1.0) > line_datas[358].volume.to_f32() {
+            return false;
+        }else if index > 340 && bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32() {
             return false;
         }
     }
@@ -101,7 +103,7 @@ pub async fn sell(
                     is_took: true,
                 };
                 take_order_pair2.insert(pair_symbol.to_string(), order_info);
-                push_text = format!("take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                push_text = format!("strategy2: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                     pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
             } else {
@@ -161,7 +163,7 @@ pub async fn buy(
                         && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 60..]) >= 20
                 {//和多久之前的比较，比较多少根？
                     let push_text = format!(
-                        "take_buy_order: market {},price_raise_ratio {}",
+                        "strategy2: take_buy_order: market {},price_raise_ratio {}",
                         pair_symbol, price_raise_ratio
                     );
                     //fixme: 这里remove会报错
@@ -169,11 +171,10 @@ pub async fn buy(
                     if is_real_trading {
                         take_order(pair_symbol.to_string(), take_info.amount, "BUY".to_string())
                             .await;
-                        notify_lark(push_text).await?;
-                    } else {
-                        warn!("now {} , {}",timestamp2date(now),push_text);
+                        notify_lark(push_text.clone()).await?;
                     }
                     take_order_pair2.remove(pair_symbol);
+                    warn!("now {} , {}",timestamp2date(now),push_text);
                     return Ok((true, 1.0 - price_raise_ratio));
                 } else if now.sub(take_info.take_time) < 1200000 {
                     //20分钟内不允许再次下单
