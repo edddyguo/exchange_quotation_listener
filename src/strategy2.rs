@@ -153,14 +153,14 @@ pub async fn buy(
                     .to_f32()
                     / take_info.price;
                 //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-                if (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 2 //顶后三根
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(4.0))
+                if (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
+                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0))
                     ||
-                    (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 8 //顶后8根不能小于八分之一
+                    (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 6 //顶后8根不能小于八分之一
                         && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(12.0))
                     ||
                     line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
-                        && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 60..]) >= 20
+                        && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {//和多久之前的比较，比较多少根？
                     let push_text = format!(
                         "strategy2: take_buy_order: market {},price_raise_ratio {}",
