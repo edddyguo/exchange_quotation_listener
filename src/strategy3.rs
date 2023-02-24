@@ -32,12 +32,12 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     let recent_price_increase_rate =
         (current_price - recent_average_price).div(recent_average_price);
 
-    info!(
+    debug!(
         "judge_break_signal market {},recent_price_increase_rate {},recent_huge_volume_bars_num {}
     ",
         market, recent_price_increase_rate, recent_huge_volume_bars_num
     );
-    info!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
+    debug!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
     ,market
     ,timestamp2date(line_datas[0].open_time)
     ,timestamp2date(line_datas[359].open_time)
@@ -61,7 +61,10 @@ pub async fn sell(
     let now = line_datas[359].open_time + 1000;
     if is_break_through_market(pair_symbol, &line_datas).await {
         info!("found_break_signal：pair_symbol {}", pair_symbol);
-        //
+        let half_hour_inc_ratio =  (line_datas[357].open_price.to_f32() - line_datas[327].open_price.to_f32()).div(30.0);
+        let ten_minutes_inc_ratio =  (line_datas[357].open_price.to_f32() - line_datas[347].open_price.to_f32()).div(10.0);
+
+
         let broken_line_datas = &line_datas[339..359];
         let shape_score = get_last_bar_shape_score(broken_line_datas.to_owned());
         let volume_score = get_last_bar_volume_score(broken_line_datas.to_owned());
@@ -70,7 +73,7 @@ pub async fn sell(
 
         //总分分别是：7分，5分，10分
         //分为三种情况：强信号直接下单，弱信号加入观测名单，弱信号且已经在观查名单且距离观察名单超过五分钟的就下单，
-        info!(
+        debug!(
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
@@ -82,6 +85,16 @@ pub async fn sell(
             && line_datas[357].close_price.to_f32() > line_datas[358].close_price.to_f32()
             && line_datas[358].volume.to_f32().mul(4.0) > line_datas[357].volume.to_f32()
         {
+            let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
+            if inc_ratio_distance < 1.2 {
+                warn!("strategy3-{}-{}-deny: inc_ratio_distance {}",
+                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+                return Ok(false);
+            }else {
+                warn!("strategy3-{}-{}-allow: inc_ratio_distance {}",
+                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+            }
+
             //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
             let price = line_datas[359].open_price.parse::<f32>().unwrap();
 
@@ -117,7 +130,7 @@ pub async fn sell(
                      );
         }
     } else {
-        info!("Have no obvious break signal");
+        debug!("Have no obvious break signal");
     }
     Ok(false)
 }
