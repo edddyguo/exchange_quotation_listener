@@ -18,9 +18,9 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         .to_f32();
     //最近2小时，交易量不能有大于准顶量1.5倍的
     for (index,bar) in line_datas[..358].iter().enumerate() {
-        if index <= 340 && bar.volume.to_f32().div(1.0) > line_datas[358].volume.to_f32() {
+        if index <= 340 && bar.volume.to_f32().div(10.0) > line_datas[358].volume.to_f32() {
             return false;
-        }else if index > 340 && bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32() {
+        }else if index > 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
             return false;
         }
     }

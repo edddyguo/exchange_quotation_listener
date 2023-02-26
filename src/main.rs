@@ -151,9 +151,9 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 
 pub async fn excute_real_trading() {
     let all_pairs = list_all_pair().await;
-    let balance = get_usdt_balance().await;
     let mut take_order_pair2: HashMap<String, TakeOrderInfo> = HashMap::new();
     loop {
+        let balance = get_usdt_balance().await;
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
             let kline_url = format!(
                 "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
