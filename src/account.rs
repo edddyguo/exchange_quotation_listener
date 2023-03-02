@@ -1,5 +1,6 @@
+use std::ops::Deref;
 use crate::constant::{BNB_API_KEY, RECV_WINDOW};
-use crate::get_unix_timestamp_ms;
+use crate::{get_unix_timestamp_ms, try_get};
 use crate::utils::hmac_sha256_sign;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 ///获取u本位账号基本信息（可用余额）
@@ -26,6 +27,45 @@ pub struct Balance {
     pub update_time: i64,
 }
 
+
+async fn try_get_balance(kline_url: String) -> Balances {
+    let client = reqwest::Client::new();
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("x-mbx-apikey"),
+        HeaderValue::from_static(BNB_API_KEY),
+    );
+    let mut balances;
+    loop {
+        match client.get(&kline_url).headers(headers.clone()).send().await {
+            Ok(res) => {
+                //println!("url {},res {:?}", kline_url,res);
+                let res_str = format!("{:?}", res);
+                match res.json::<Balances>().await {
+                    Ok(data) => {
+                        balances = data;
+                        break;
+                    }
+                    Err(error) => {
+                        //println!("reqwest res string: {:?}",res_str);
+                        warn!(
+                            "res deserialize happened error {},and raw res {}",
+                            error.to_string(),
+                            res_str
+                        );
+                        std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
+                    }
+                }
+            }
+            Err(error) => {
+                warn!("reqwest get happened error {}", error.to_string());
+                std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
+            }
+        }
+    }
+    balances
+}
+
 pub async fn get_usdt_balance() -> f32 {
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -44,17 +84,8 @@ pub async fn get_usdt_balance() -> f32 {
         request_parameter, signature
     );
     //todo: 1、签名 2、curl -H
-    let client = reqwest::Client::new();
-    let line_data = client
-        .get(url)
-        .headers(headers)
-        .send()
-        .await
-        .unwrap()
-        .json::<Balances>()
-        .await
-        .unwrap();
-    let balance_value = line_data
+   let balances = try_get_balance(url).await;
+    let balance_value = balances
         .iter()
         .map(|x| x.available_balance.parse::<f32>().unwrap())
         .sum::<f32>();

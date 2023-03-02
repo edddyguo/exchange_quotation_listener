@@ -4,7 +4,7 @@ use crate::{try_get, Kline, MathOperation2};
 //symbol	STRING	NO	交易对
 use serde::Deserialize;
 use serde::Serialize;
-use std::ops::Div;
+use std::ops::{Deref, Div};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,7 +49,9 @@ pub async fn get_current_price(symbol: &str) -> f32 {
         "https://fapi.binance.com/fapi/v1/ticker/price?symbol={}",
         symbol
     );
-    let price_info = try_get2(url).await;
+    //let price_info = try_get2(url).await;
+    let price_info = try_get::<Price>(url).await;
+
     //println!("get_current_price result {:?}",res);
     //let line_datas = try_get(kline_url).await;
 

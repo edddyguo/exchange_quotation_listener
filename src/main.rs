@@ -36,7 +36,7 @@ use log::{debug, error, info, log_enabled, Level};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
-use std::ops::{Div, Mul, Sub};
+use std::ops::{Deref, Div, Mul, Sub};
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -94,14 +94,14 @@ pub struct TakeOrderInfo {
 }
 
 //todo: 不只是kline，用泛型弄
-async fn try_get(kline_url: String) -> Vec<Kline> {
+async fn try_get<DATA_TYPE: for<'a> Deserialize<'a>>(kline_url: String) -> Box<DATA_TYPE> {
     let mut line_data;
     loop {
         match reqwest::get(&kline_url).await {
             Ok(res) => {
                 //println!("url {},res {:?}", kline_url,res);
                 let res_str = format!("{:?}", res);
-                match res.json::<Vec<Kline>>().await {
+                match res.json::<DATA_TYPE>().await {
                     Ok(data) => {
                         line_data = data;
                         break;
@@ -123,7 +123,7 @@ async fn try_get(kline_url: String) -> Vec<Kline> {
             }
         }
     }
-    line_data
+    Box::new(line_data)
 }
 
 //推送消息给lark机器人
@@ -160,7 +160,7 @@ pub async fn excute_real_trading() {
                 pair.symbol.as_str(),
                 KLINE_NUM_FOR_FIND_SIGNAL
             );
-            let line_datas = try_get(kline_url).await;
+            let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
             //todo: 目前人工维护已下单数据，后期考虑链上获取
             match strategy2::buy(&mut take_order_pair2,
                                  pair.symbol.as_str(),

@@ -17,6 +17,7 @@ pub const INCREASE_PRICE_LEVEL1: f32 = 0.03;
 pub const INCREASE_PRICE_LEVEL2: f32 = 0.03;
 pub const INCREASE_VOLUME_LEVEL1: f32 = 5.0;
 pub const INCREASE_VOLUME_LEVEL2: f32 = 5.0;
+pub const WEEK: u64 = 7 * 24 * 60 * 60 * 1000;
 
 pub const PERP_MARKET: [&str; 152] = [
     "BTCUSDT",
