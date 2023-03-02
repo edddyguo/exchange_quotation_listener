@@ -2,6 +2,7 @@ use crate::{get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_n
 use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
 use crate::constant::WEEK;
+use crate::kline::volume_too_few;
 
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
 async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
@@ -172,18 +173,24 @@ pub async fn buy(
 
                 let interval_from_take = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
                 //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-                if (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0))
-                    ||
-                    (line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 6 //顶后8根不能小于八分之一
-                        && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(12.0))
-                    ||
-                    line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
-                        && price_raise_ratio  < 1.0
-                        && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
-                    // 1周内如果有亏损就持续持仓
-                    || interval_from_take >  WEEK
-                {//和多久之前的比较，比较多少根？
+                let (can_buy, buy_reason) = if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
+                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
+                {
+                    (true,"too few volume in last 3 bars")
+                } else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
+                {
+                    (true,"last 10 bars volume too few")
+                } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
+                    && price_raise_ratio < 1.0
+                    && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
+                {
+                    (true,"Positive income and held it for two hour，and price start increase")
+                }else if interval_from_take >  WEEK {
+                    (true,"hold order for a weak,have to stop it")
+                }else {
+                    (false,"")
+                };
+                if can_buy {//和多久之前的比较，比较多少根？
                     let push_text = format!(
                         "strategy2: take_buy_order: market {},interval_from_take {}({}),price_raise_ratio {}",
                         pair_symbol, interval_from_take,timestamp2date(interval_from_take),price_raise_ratio

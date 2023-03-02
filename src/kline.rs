@@ -106,6 +106,22 @@ pub fn get_average_info(klines: &[Kline]) -> (f32, f32) {
     (average_price, average_volume)
 }
 
+//判断最近的交易量是否足够低迷，在平仓的时候使用
+pub fn volume_too_few(klines: &[Kline],reference_volume:f32) -> bool {
+    let mut sum_volume = 0.0;
+    for kline in klines {
+        if kline.volume.to_f32() > reference_volume.div(8.0) {
+            return false;
+        }
+        sum_volume += kline.volume.to_f32();
+    }
+    if sum_volume.div(klines.len() as f32) > reference_volume.div(10.0) {
+        false
+    }else {
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::kline::get_current_price;
