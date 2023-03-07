@@ -177,23 +177,23 @@ pub async fn buy(
                     && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
                 {
                     (true,"too few volume in last 3 bars")
-                } else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
-                {
-                    (true,"last 10 bars volume too few")
+                //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
+                //{
+                //    (true,"last 10 bars volume too few")
                 } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
-                    && price_raise_ratio < 1.0
+                //    && price_raise_ratio < 1.0
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
                     (true,"Positive income and held it for two hour，and price start increase")
-                }else if interval_from_take >  WEEK {
-                    (true,"hold order for a weak,have to stop it")
+                //}else if interval_from_take >  WEEK {
+                //    (true,"hold order for a weak,have to stop it")
                 }else {
                     (false,"")
                 };
                 if can_buy {//和多久之前的比较，比较多少根？
                     let push_text = format!(
-                        "strategy2: take_buy_order: market {},interval_from_take {}({}),price_raise_ratio {}",
-                        pair_symbol, interval_from_take,timestamp2date(interval_from_take),price_raise_ratio
+                        "strategy2: buy_reason <<{}>>:: take_buy_order: market {},interval_from_take {}({}),price_raise_ratio {}",
+                        buy_reason,pair_symbol, interval_from_take,timestamp2date(interval_from_take),price_raise_ratio
                     );
                     //fixme: 这里remove会报错
                     //take_order_pair2.remove(pair_symbol);
