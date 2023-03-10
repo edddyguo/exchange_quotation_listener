@@ -49,7 +49,7 @@ pub fn timestamp2date(time: u64) -> String {
 
 pub fn hmac_sha256_sign(message: &str) -> String {
     let mut mac = HmacSha256::new_from_slice(
-        b"Jh9pTnrvQ6vW1cZH3pS7yaH6Pm954M6Tt5Huq8Ti1xIC2BsfFGJI0z889RXgX8Q1",
+        b"4UDzQ00ejK4FeppVi9jtvOQzxd6JtrxKa5SWihqfcqfAYTu1N0CIo6hKrhCril3g",
     )
     .expect("HMAC can take key of any size");
     mac.update(message.as_bytes());
