@@ -66,7 +66,6 @@ pub async fn sell(
         let half_hour_inc_ratio = (line_datas[357].open_price.to_f32() - line_datas[327].open_price.to_f32()).div(30.0);
         let ten_minutes_inc_ratio = (line_datas[357].open_price.to_f32() - line_datas[347].open_price.to_f32()).div(10.0);
 
-
         let broken_line_datas = &line_datas[339..359];
         let shape_score = get_last_bar_shape_score(broken_line_datas.to_owned());
         let volume_score = get_last_bar_volume_score(broken_line_datas.to_owned());

@@ -23,13 +23,12 @@ pub fn get_huge_volume_bar_num(bars: &[Kline], min_volume: f32, ration: f32) -> 
     let mut huge_volume_bars_num = 0;
     for (index, bar) in bars.iter().enumerate() {
         let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
+        //临近10根的量大于远处的平均值五倍，算巨量
         if index >= 10 && increase_volume > ration {
             huge_volume_bars_num += 1;
-            //todo: 保证最近10根里面每个都至少大于平均值的十分之一
+            //临近5根中如果小于平均值的五分之一则，信号失效，不允许突破中太少的量
         } else if index >= 15 && bar.volume.to_f32().mul(5.0) < average_volume {
-            //保证最近20根，每一根都要大于min的2倍以上
             return 0u8;
-            //保证20根里面没有比当前volume大于2倍的，扩展
         }
     }
     huge_volume_bars_num

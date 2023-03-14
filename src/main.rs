@@ -1,7 +1,9 @@
 #![feature(slice_take)]
+#![feature(async_fn_in_trait)]
 extern crate core;
 #[macro_use]
 extern crate log;
+
 
 mod account;
 mod bar;
@@ -24,6 +26,8 @@ use crate::constant::{
     BROKEN_UP_INTERVALS, INCREASE_PRICE_LEVEL1, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL1,
     INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
 };
+use crate::strategy::sell::SellReason;
+
 use crate::ex_info::{list_all_pair, Symbol};
 use crate::filters::Root;
 use crate::history_data::{download_history_data, load_history_data, load_history_data_by_pair};
@@ -37,9 +41,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::{Deref, Div, Mul, Sub};
+use crate::strategy::sell::SellReason::{AStrongSignal, RaiseIsStop, ThreeContinuousSignal, TwoMiddleSignal};
+use crate::strategy::sell::TakeType;
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
+
+type Pair = String;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AvgPrice {
@@ -150,8 +158,9 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 }
 
 pub async fn excute_real_trading() {
-    let all_pairs = list_all_pair().await;
-    let mut take_order_pair2: HashMap<String, TakeOrderInfo> = HashMap::new();
+    todo!()
+    /*let all_pairs = list_all_pair().await;
+    let mut take_order_pair2: HashMap<(Pair, SellReason), Vec<TakeOrderInfo>> = HashMap::new();
     loop {
         let balance = get_usdt_balance().await;
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
@@ -162,74 +171,40 @@ pub async fn excute_real_trading() {
             );
             let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
             //todo: 目前人工维护已下单数据，后期考虑链上获取
-            match strategy2::buy(&mut take_order_pair2,
-                                 pair.symbol.as_str(),
-                                 &line_datas, true).await
-            {
-                Ok((true, _)) => {
+            let mut all_reason_total_profit: Vec<(SellReason, f32)> = vec![(AStrongSignal, 0.0), (RaiseIsStop, 0.0), (ThreeContinuousSignal, 0.0), (TwoMiddleSignal, 0.0)];
+            for (reason2, mut _total_profit) in all_reason_total_profit {
+                let (is_took,_profit) = strategy::buy(
+                    &mut take_order_pair,
+                    (pair.symbol.clone(),reason2),
+                    &line_datas,
+                    false,
+                ).await.unwrap();
+                //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
+                if is_took {
                     continue;
                 }
-                Ok((false, _)) => {}
-                Err(_) => {}
             }
-            let _ = strategy2::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
+            let _ = strategy::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
         }
         //严格等待到下一分钟
         let distance_next_minute_time = 60000 - get_unix_timestamp_ms() % 60000;
         std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
         warn!("complete listen all pairs,and start next minute");
-    }
+    }*/
 }
 
 pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> (f32, u32) {
-    let balance = 10.0;
-    let mut txs = 0u32;
-    let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
-    let mut total_profit = 0.0;
-    for (pair, klines) in history_data {
-        warn!("start test {}", pair.symbol.as_str());
-        let mut index = 0;
-        for bar in &klines[359..] {
-            let line_datas = &klines[index..(index + 360)];
-            index += 1;
-            assert_eq!(bar.open_time, line_datas[359].open_time);
-            match strategy3::buy(
-                &mut take_order_pair,
-                pair.symbol.as_str(),
-                &line_datas,
-                false,
-            )
-                .await
-            {
-                Ok((true, profit)) => {
-                    total_profit += profit;
-                    if profit != 0.0 {
-                        total_profit -= 0.0008;
-                        txs += 2;
-                    }
-                    continue;
-                }
-                Ok((false, _)) => {}
-                Err(error) => { warn!("{}",error.to_string()) }
-            }
-            let _ = strategy3::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
-            if index >= 50000 {
-                break;
-            }
-        }
-        //test one symbol
-        //break;
-        warn!("total_profit {},total txs {}",total_profit,txs);
-    }
-    return (total_profit, txs);
+    todo!()
 }
 
-pub async fn execute_back_testing2(month: u8) -> (f32, u32) {
+pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32,u32)> {
     let balance = 10.0;
-    let mut txs = 0u32;
-    let mut take_order_pair: HashMap<String, TakeOrderInfo> = HashMap::new();
-    let mut total_profit = 0.0;
+    let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
+    ///reason,total_profit,txs
+    //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0), (TwoMiddleSignal, 0.0,0)];
+    let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
+
     for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
         let klines = load_history_data_by_pair(&pair.symbol, month).await;
@@ -241,35 +216,38 @@ pub async fn execute_back_testing2(month: u8) -> (f32, u32) {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            match strategy2::buy(
-                &mut take_order_pair,
-                pair.symbol.as_str(),
-                &line_datas,
-                false,
-            )
-                .await
-            {
-                Ok((true, profit)) => {
-                    total_profit += profit;
-                    if profit != 0.0 {
-                        total_profit -= 0.0008;
-                        txs += 2;
-                    }
-                    continue;
+            for (reason, mut total_profit,mut txs) in all_reason_total_profit.iter() {
+                let take_type = TakeType{
+                    pair: pair.symbol.clone(),
+                    sell_reason: reason.clone()
+                };
+                // fixme：_is_took 是否已经不需要了？
+                let (_is_took,profit) = strategy::buy(
+                    &mut take_order_pair,
+                    take_type,
+                    &line_datas,
+                    false,
+                ).await.unwrap();
+                total_profit += profit;
+                //只有下了卖单和买单的才统计收益
+                if profit != 0.0 {
+                    total_profit -= 0.0008;
+                    txs += 2;
                 }
-                Ok((false, _)) => {}
-                Err(error) => { warn!("{}",error.to_string()) }
+                //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
+                //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
+               /* if is_took {
+                    continue;
+                }*/
             }
-            let _ = strategy2::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+
+            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
             if index >= 50000 {
                 break;
             }
         }
-        //test one symbol
-        //break;
-        warn!("total_profit {},total txs {}",total_profit,txs);
     }
-    return (total_profit, txs);
+    return all_reason_total_profit;
 }
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
@@ -302,8 +280,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
             for month in 1..=1 {
-                let (total_profit, txs) = execute_back_testing2(month).await;
-                warn!("month {} total_profit {},total txs {}",month,total_profit,txs);
+                let datas = execute_back_testing2(month).await;
+                for (reason,total_profit,txs) in datas {
+                    warn!("month {},reason {}, total_profit {},total txs {}",month,reason.to_string(),total_profit,txs);
+                }
             }
         }
         Some(("download_history_kline", _sub_matches)) => {
