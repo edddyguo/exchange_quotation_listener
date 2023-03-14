@@ -39,8 +39,10 @@ pub async fn take_order(symbol: String, amount: f32, side: String) {
     );
 
     let client = reqwest::Client::new();
-    let res = client.post(url).headers(headers).send().await.unwrap();
-    println!("take order result {:?}", res);
+    while client.post(&url).headers(headers.clone()).send().await.unwrap().status() != 200 {
+        warn!("request failed: {} ",url);
+    }
+    println!("take order OK: {}",url);
     //todo: 下单结果判断
 }
 
