@@ -73,13 +73,12 @@ pub async fn sell(
     is_real_trading: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pair_symbol = pair.symbol.as_str();
-    let now = line_datas[359].open_time + 1000;
     if !is_break_through_market(pair_symbol,&line_datas).await {
         debug!("Have no obvious break signal");
         return Ok(false);
     }
     ASS::condition_passed(take_order_pair2,line_datas,pair,balance,is_real_trading).await?;
-    //TMS::condition_passed(take_order_pair2,line_datas,pair,balance,is_real_trading)?;
+    TMS::condition_passed(take_order_pair2,line_datas,pair,balance,is_real_trading).await?;
     Ok(true)
 }
 

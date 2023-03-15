@@ -201,10 +201,10 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32,u32)> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
-    //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0), (TwoMiddleSignal, 0.0,0)];
-    let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
+    let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0), (TwoMiddleSignal, 0.0,0)];
+    //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
-
+    let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
     for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
         let klines = load_history_data_by_pair(&pair.symbol, month).await;
@@ -215,8 +215,11 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32,u32)> {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
+            if eth_klines[index+350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03 {
+                continue;
+            }
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            for (reason, mut total_profit,mut txs) in all_reason_total_profit.iter() {
+            for (reason, total_profit,txs) in all_reason_total_profit.iter_mut() {
                 let take_type = TakeType{
                     pair: pair.symbol.clone(),
                     sell_reason: reason.clone()
@@ -228,11 +231,12 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32,u32)> {
                     &line_datas,
                     false,
                 ).await.unwrap();
-                total_profit += profit;
+                *total_profit += profit;
                 //只有下了卖单和买单的才统计收益
                 if profit != 0.0 {
-                    total_profit -= 0.0008;
-                    txs += 2;
+                    *total_profit -= 0.0008;
+                    *txs += 2;
+                    info!("all_reason_total_profit total_profit {} txs {}",*total_profit,*txs);
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
@@ -279,7 +283,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for month in 1..=1 {
+            for month in 1..=12 {
                 let datas = execute_back_testing2(month).await;
                 for (reason,total_profit,txs) in datas {
                     warn!("month {},reason {}, total_profit {},total txs {}",month,reason.to_string(),total_profit,txs);
