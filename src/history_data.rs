@@ -33,7 +33,7 @@ pub async fn download_history_data() {
     let all_pairs = list_all_pair().await;
     let url = "https://data.binance.vision/data/spot/monthly/klines".to_string();
     all_pairs.par_iter().for_each(|pair| {
-        for month in 1..=4 {
+        for month in 1..=12 {
             let file_name = format!("{}/{}-1m-2022-{:0>2}.zip", dir, pair.symbol, month);
             let url = format!(
                 "{}/{}/1m/{}-1m-2022-{:0>2}.zip",

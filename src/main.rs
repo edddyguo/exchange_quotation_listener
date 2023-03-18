@@ -286,7 +286,7 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
                 if profit != 0.0 {
                     *total_profit -= 0.0008;
                     *txs += 2;
-                    info!("month {} reason {} total_profit {} txs {}",month,reason.to_string(),*total_profit,*txs);
+                    info!("tmp:month {} pair {} reason {} total_profit {} txs {}",month,pair.symbol,reason.to_string(),*total_profit,*txs);
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
@@ -425,7 +425,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         rt.block_on(async move {
                             let datas = execute_back_testing2(month).await;
                             for (reason, total_profit, txs) in datas {
-                                warn!("month {},reason {}, total_profit {},total txs {}",month,reason.to_string(),total_profit,txs);
+                                warn!("finally: month {},reason {}, total_profit {},total txs {}",line!(),month,reason.to_string(),total_profit,txs);
                             }
                         });
                     });
