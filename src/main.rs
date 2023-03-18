@@ -267,9 +267,7 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
-            if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03 {
-                continue;
-            }
+
             assert_eq!(bar.open_time, line_datas[359].open_time);
             for (reason, total_profit, txs) in all_reason_total_profit.iter_mut() {
                 let take_type = TakeType {
@@ -288,7 +286,7 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
                 if profit != 0.0 {
                     *total_profit -= 0.0008;
                     *txs += 2;
-                    info!("all_reason_total_profit total_profit {} txs {}",*total_profit,*txs);
+                    info!("reason {} total_profit {} txs {}",reason.to_string(),*total_profit,*txs);
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
@@ -296,6 +294,12 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
                      continue;
                  }*/
             }
+
+            /***
+            if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03 {
+                continue;
+            }
+             */
 
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
             if index >= 50000 {
