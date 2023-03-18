@@ -286,7 +286,7 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
                 if profit != 0.0 {
                     *total_profit -= 0.0008;
                     *txs += 2;
-                    info!("reason {} total_profit {} txs {}",reason.to_string(),*total_profit,*txs);
+                    info!("month {} reason {} total_profit {} txs {}",month,reason.to_string(),*total_profit,*txs);
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
@@ -389,6 +389,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .subcommand(App::new("real_trading"))
         .subcommand(App::new("back_testing"))
         .subcommand(App::new("back_testing2"))
+        .subcommand(App::new("back_testing3"))
         .subcommand(App::new("download_history_kline"))
         .get_matches();
     match matches.subcommand() {
