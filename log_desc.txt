@@ -1,0 +1,4 @@
+原始数据     2022(1)_0_base.log
+
+2022_1_eth_strong.log         测试eth强势期间减少开空仓         无效
+2022_2_a_very_strong.log      增加三连阴和非常强的单信号，修正two信号的recent_shape_score区间问题

@@ -14,6 +14,7 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
+use crate::strategy::sell::a_very_strong_signal::AVSS;
 use crate::strategy::sell::three_continuous_signal::TCS;
 
 pub struct OrderData {
@@ -92,9 +93,11 @@ pub async fn sell(
         .div(20.0)
         .div(price)
         .to_fix(pair.quantity_precision as u32);
+    //todo: 将其中通用的计算逻辑拿出来
     ASS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
     TMS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
     TCS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
+    AVSS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
     Ok(true)
 }
 

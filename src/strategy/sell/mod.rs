@@ -2,6 +2,7 @@ pub mod a_strong_signal;
 pub mod raise_is_stop;
 pub mod three_continuous_signal;
 pub mod two_middle_signal;
+pub mod a_very_strong_signal;
 
 use crate::ex_info::Symbol;
 use crate::{Kline, Pair, StrategyEffect, TakeOrderInfo};
@@ -18,6 +19,7 @@ pub struct TakeType {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SellReason {
     AStrongSignal,
+    AVeryStrongSignal,
     TwoMiddleSignal,
     ThreeContinuousSignal,
     RaiseIsStop,
@@ -38,6 +40,7 @@ impl From<&str> for SellReason {
     fn from(v: &str) -> Self {
         match v {
             "AStrongSignal" => SellReason::AStrongSignal,
+            "AVeryStrongSignal" => SellReason::AVeryStrongSignal,
             "TwoMiddleSignal" => SellReason::TwoMiddleSignal,
             "ThreeContinuousSignal" =>  SellReason::ThreeContinuousSignal,
             "RaiseIsStop" => SellReason::RaiseIsStop,
@@ -50,6 +53,7 @@ impl From<SellReason> for &str {
     fn from(v: SellReason) -> Self {
         match v {
             SellReason::AStrongSignal => "AStrongSignal",
+            SellReason::AVeryStrongSignal => "AVeryStrongSignal",
             SellReason::TwoMiddleSignal => "TwoMiddleSignal",
             SellReason::ThreeContinuousSignal => "ThreeContinuousSignal",
             SellReason::RaiseIsStop => "RaiseIsStop",

@@ -115,8 +115,11 @@ pub fn get_last_bar_volume_score(bars: Vec<Kline>) -> u8 {
         .div(5.0f32);
 
     if last_bar.volume.to_f32() / recent_volume >= 2.0 {
+        6
+    }else if last_bar.volume.to_f32() / recent_volume >= 1.6 {
         5
-    } else if last_bar.volume.to_f32() / recent_volume >= 1.2 {
+    }
+    else if last_bar.volume.to_f32() / recent_volume >= 1.2 {
         4
     } else if last_bar.volume.to_f32() / recent_volume >= 0.8 {
         3

@@ -41,7 +41,7 @@ impl TMS {
         let shape_score = get_last_bar_shape_score(broken_line_datas.to_owned());
         let volume_score = get_last_bar_volume_score(broken_line_datas.to_owned());
         //8-17。多一个作为价格比较的基准
-        let recent_shape_score = recent_kline_shape_score(broken_line_datas[7..=17].to_vec());
+        let recent_shape_score = recent_kline_shape_score(broken_line_datas[8..=18].to_vec());
 
         //总分分别是：7分，5分，10分
         //分为三种情况：强信号直接下单，弱信号加入观测名单，弱信号且已经在观查名单且距离观察名单超过五分钟的就下单，
