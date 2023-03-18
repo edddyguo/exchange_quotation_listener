@@ -193,8 +193,58 @@ pub async fn excute_real_trading() {
     }*/
 }
 
-pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>) -> (f32, u32) {
-    todo!()
+pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>,month: u8) ->Vec<(SellReason, f32,u32)> {
+    let balance = 10.0;
+    let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
+    ///reason,total_profit,txs
+    let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0), (TwoMiddleSignal, 0.0,0)];
+    //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
+    let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
+    for (pair,klines) in history_data {
+        warn!("start test {},klines size {}", pair.symbol.as_str(),klines.len());
+        let mut index = 0;
+        for bar in &klines[359..] {
+            let line_datas = &klines[index..(index + 360)];
+            index += 1;
+            assert_eq!(bar.open_time, line_datas[359].open_time);
+            for (reason, total_profit,txs) in all_reason_total_profit.iter_mut() {
+                let take_type = TakeType{
+                    pair: pair.symbol.clone(),
+                    sell_reason: reason.clone()
+                };
+                // fixme：_is_took 是否已经不需要了？
+                let (_is_took,profit) = strategy::buy(
+                    &mut take_order_pair,
+                    take_type,
+                    &line_datas,
+                    false,
+                ).await.unwrap();
+                *total_profit += profit;
+                //只有下了卖单和买单的才统计收益
+                if profit != 0.0 {
+                    *total_profit -= 0.0008;
+                    *txs += 2;
+                    info!("all_reason_total_profit total_profit {} txs {}",*total_profit,*txs);
+                }
+                //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
+                //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
+                /* if is_took {
+                     continue;
+                 }*/
+            }
+
+            //避开eth的强势时间的信号
+            if eth_klines[index+350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03 {
+                continue;
+            }
+
+            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            if index >= 50000 {
+                break;
+            }
+        }
+    }
+    return all_reason_total_profit;
 }
 
 pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32,u32)> {
@@ -277,8 +327,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("back_testing");
             for month in 1..=12 {
                 let history_data = load_history_data(month).await;
-                let (total_profit, txs) = execute_back_testing(history_data).await;
-                warn!("month {} total_profit {},total txs {}",month,total_profit,txs);
+                let datas = execute_back_testing(history_data,month).await;
+                for (reason,total_profit,txs) in datas {
+                    warn!("month {},reason {}, total_profit {},total txs {}",month,reason.to_string(),total_profit,txs);
+                }
             }
         }
         Some(("back_testing2", _sub_matches)) => {
