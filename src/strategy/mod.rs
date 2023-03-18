@@ -23,14 +23,6 @@ pub struct OrderData {
     increase_ratio: f32,
 }
 
-struct StrategyEffect{
-    txs:u32,
-    win_txs:u32,
-    lose_txs:u32,
-    total_profit:u32,
-    win_ratio:f32,
-}
-
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
 async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     assert_eq!(line_datas.len(), KLINE_NUM_FOR_FIND_SIGNAL);
@@ -139,9 +131,10 @@ pub async fn buy(
                 };
                 if can_buy {
                     //和多久之前的比较，比较多少根？
+                    let sell_reason_str:&str = pair_and_sell_reason.clone().sell_reason.into();
                     let push_text = format!(
                         "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                        buy_reason, pair_and_sell_reason.sell_reason.to_string(),pair_and_sell_reason.pair, price_raise_ratio);
+                        buy_reason, sell_reason_str,pair_and_sell_reason.pair, price_raise_ratio);
                     //fixme: 这里remove会报错
                     //take_order_pair2.remove(pair_symbol);
                     if is_real_trading {

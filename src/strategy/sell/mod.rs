@@ -4,7 +4,7 @@ pub mod three_continuous_signal;
 pub mod two_middle_signal;
 
 use crate::ex_info::Symbol;
-use crate::{Kline, Pair, TakeOrderInfo};
+use crate::{Kline, Pair, StrategyEffect, TakeOrderInfo};
 use async_trait::async_trait;
 use std::collections::HashMap;
 
@@ -23,13 +23,36 @@ pub enum SellReason {
     RaiseIsStop,
 }
 
-impl SellReason {
+/*impl SellReason {
     pub fn to_string(&self) -> String {
         match self {
             SellReason::AStrongSignal => "AStrongSignal".to_string(),
             SellReason::TwoMiddleSignal => "TwoMiddleSignal".to_string(),
             SellReason::ThreeContinuousSignal => "ThreeContinuousSignal".to_string(),
             SellReason::RaiseIsStop => "RaiseIsStop".to_string(),
+        }
+    }
+}*/
+
+impl From<&str> for SellReason {
+    fn from(v: &str) -> Self {
+        match v {
+            "AStrongSignal" => SellReason::AStrongSignal,
+            "TwoMiddleSignal" => SellReason::TwoMiddleSignal,
+            "ThreeContinuousSignal" =>  SellReason::ThreeContinuousSignal,
+            "RaiseIsStop" => SellReason::RaiseIsStop,
+            _  => unreachable!()
+        }
+    }
+}
+
+impl From<SellReason> for &str {
+    fn from(v: SellReason) -> Self {
+        match v {
+            SellReason::AStrongSignal => "AStrongSignal",
+            SellReason::TwoMiddleSignal => "TwoMiddleSignal",
+            SellReason::ThreeContinuousSignal => "ThreeContinuousSignal",
+            SellReason::RaiseIsStop => "RaiseIsStop",
         }
     }
 }

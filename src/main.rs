@@ -104,6 +104,30 @@ pub struct TakeOrderInfo {
     is_took: bool, //是否已经下单
 }
 
+#[derive(Debug)]
+pub struct StrategyEffect{
+    sell_reason:String,
+    txs:u32,
+    win_txs:u32,
+    lose_txs:u32,
+    total_profit:f32,
+    win_ratio:f32,
+}
+
+impl StrategyEffect{
+    pub fn new(sell_reason:SellReason) -> Self{
+        let reason_str:&str = sell_reason.into();
+        StrategyEffect{
+            sell_reason:reason_str.to_owned(),
+            txs: 0,
+            win_txs: 0,
+            lose_txs: 0,
+            total_profit: 0.0,
+            win_ratio: 0.0
+        }
+    }
+}
+
 //todo: 不只是kline，用泛型弄
 async fn try_get<DATA_TYPE: for<'a> Deserialize<'a>>(kline_url: String) -> Box<DATA_TYPE> {
     let mut line_data;
@@ -261,12 +285,12 @@ pub async fn execute_back_testing(
     return all_reason_total_profit;
 }
 
-pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
+pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
-    let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> =
-        vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
+    let mut all_reason_total_profit: Vec<StrategyEffect> =
+        vec![StrategyEffect::new(AStrongSignal), StrategyEffect::new(TwoMiddleSignal)];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
     let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
@@ -282,29 +306,27 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
             index += 1;
 
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            for (reason, total_profit, txs) in all_reason_total_profit.iter_mut() {
+            for effect in all_reason_total_profit.iter_mut() {
                 let take_type = TakeType {
                     pair: pair.symbol.clone(),
-                    sell_reason: reason.clone(),
+                    sell_reason: SellReason::from(effect.sell_reason.as_str()),
                 };
                 // fixme：_is_took 是否已经不需要了？
                 let (_is_took, profit) =
                     strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
                         .await
                         .unwrap();
-                *total_profit += profit;
+                effect.total_profit += profit;
                 //只有下了卖单和买单的才统计收益
                 if profit != 0.0 {
-                    *total_profit -= 0.0008;
-                    *txs += 2;
-                    info!(
-                        "tmp:month {} pair {} reason {} total_profit {} txs {}",
-                        month,
-                        pair.symbol,
-                        reason.to_string(),
-                        *total_profit,
-                        *txs
-                    );
+                    effect.total_profit -= 0.0008;
+                    effect.txs += 1;
+                    if profit > 0.0 {
+                        effect.win_txs += 1;
+                    }else {
+                        effect.lose_txs += 1;
+                    }
+                    info!("tmp:month {} ,detail {:?}",month,effect);
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
@@ -418,10 +440,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let history_data = load_history_data(month).await;
                 let datas = execute_back_testing(history_data, month).await;
                 for (reason, total_profit, txs) in datas {
+                    let reason_str:&str = reason.into();
                     warn!(
                         "month {},reason {}, total_profit {},total txs {}",
                         month,
-                        reason.to_string(),
+                        reason_str,
                         total_profit,
                         txs
                     );
@@ -432,14 +455,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("back_testing2");
             for month in 1..=12 {
                 let datas = execute_back_testing2(month).await;
-                for (reason, total_profit, txs) in datas {
-                    warn!(
-                        "month {},reason {}, total_profit {},total txs {}",
-                        month,
-                        reason.to_string(),
-                        total_profit,
-                        txs
-                    );
+                for data in datas {
+                    warn!("finally: month {},detail {:?}",month,data);
                 }
             }
         }
@@ -451,14 +468,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let rt = Runtime::new().unwrap();
                         rt.block_on(async move {
                             let datas = execute_back_testing2(month).await;
-                            for (reason, total_profit, txs) in datas {
-                                warn!(
-                                    "finally: month {},reason {}, total_profit {},total txs {}",
-                                    month,
-                                    reason.to_string(),
-                                    total_profit,
-                                    txs
-                                );
+                            for data in datas {
+                                warn!("finally: month {},detail {:?}",month,data);
                             }
                         });
                     });
