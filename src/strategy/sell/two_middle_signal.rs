@@ -1,12 +1,14 @@
+use super::SellReason;
+use super::SellStrategy;
+use crate::ex_info::Symbol;
+use crate::utils::timestamp2date;
+use crate::{
+    get_last_bar_shape_score, get_last_bar_volume_score, notify_lark, recent_kline_shape_score,
+    take_order, Kline, MathOperation, MathOperation2, Pair, TakeOrderInfo, TakeType,
+};
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::{Div, Mul};
-use super::SellStrategy;
-use super::SellReason;
-use crate::{get_last_bar_shape_score, get_last_bar_volume_score, Kline, MathOperation, MathOperation2, notify_lark, Pair, recent_kline_shape_score, take_order, TakeOrderInfo, TakeType};
-use crate::ex_info::Symbol;
-use crate::utils::timestamp2date;
-
 
 pub struct TMS {}
 
@@ -15,20 +17,24 @@ impl TMS {
         SellReason::TwoMiddleSignal
     }
 
-    pub async fn condition_passed(take_order_pair2: & mut HashMap<TakeType, Vec<TakeOrderInfo>>,
-                              line_datas: &[Kline],
-                              pair: &Symbol,
-                              balance: f32,
-                              is_real_trading: bool) -> Result<bool, Box<dyn Error>> {
+    pub async fn condition_passed(
+        take_order_pair2: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
+        line_datas: &[Kline],
+        pair: &Symbol,
+        balance: f32,
+        is_real_trading: bool,
+    ) -> Result<bool, Box<dyn Error>> {
         let pair_symbol = pair.symbol.as_str();
         let now = line_datas[359].open_time + 1000;
-        let take_sell_type = TakeType{
+        let take_sell_type = TakeType {
             pair: pair_symbol.to_string(),
-            sell_reason: Self::name()
+            sell_reason: Self::name(),
         };
 
-        let half_hour_inc_ratio = (line_datas[358].open_price.to_f32() - line_datas[328].open_price.to_f32()).div(30.0);
-        let ten_minutes_inc_ratio = (line_datas[358].open_price.to_f32() - line_datas[348].open_price.to_f32()).div(10.0);
+        let half_hour_inc_ratio =
+            (line_datas[358].open_price.to_f32() - line_datas[328].open_price.to_f32()).div(30.0);
+        let ten_minutes_inc_ratio =
+            (line_datas[358].open_price.to_f32() - line_datas[348].open_price.to_f32()).div(10.0);
 
         let broken_line_datas = &line_datas[340..360];
         let shape_score = get_last_bar_shape_score(broken_line_datas.to_owned());
@@ -42,11 +48,7 @@ impl TMS {
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
-        if
-        shape_score >= 4
-            && volume_score >= 3
-            && recent_shape_score >= 6
-        {
+        if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
             //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
             let price = broken_line_datas[19].open_price.parse::<f32>().unwrap();
 
@@ -60,18 +62,26 @@ impl TMS {
             let take_info = take_order_pair2.get(&take_sell_type);
             //二次拉升才下单,并且量大于2倍
             if take_info.is_some()
-                && broken_line_datas[18].volume.to_f32().div(1.1) > take_info.unwrap().last().unwrap().top_bar.volume.to_f32()
+                && broken_line_datas[18].volume.to_f32().div(1.1)
+                    > take_info.unwrap().last().unwrap().top_bar.volume.to_f32()
             {
                 let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
                 if inc_ratio_distance < 1.2 {
-                    warn!("strategy2-{}-{}-deny: inc_ratio_distance {}",
-                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+                    warn!(
+                        "strategy2-{}-{}-deny: inc_ratio_distance {}",
+                        pair_symbol,
+                        timestamp2date(now),
+                        inc_ratio_distance
+                    );
                     return Ok(false);
                 } else {
-                    warn!("strategy2-{}-{}-allow: inc_ratio_distance {}",
-                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+                    warn!(
+                        "strategy2-{}-{}-allow: inc_ratio_distance {}",
+                        pair_symbol,
+                        timestamp2date(now),
+                        inc_ratio_distance
+                    );
                 }
-
 
                 if is_real_trading {
                     take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
@@ -100,7 +110,7 @@ impl TMS {
                                     pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
             }
-            warn!("now {}, {}",timestamp2date(now),push_text);
+            warn!("now {}, {}", timestamp2date(now), push_text);
             if is_real_trading {
                 notify_lark(push_text).await?;
             }

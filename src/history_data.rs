@@ -89,8 +89,7 @@ pub async fn load_history_data(month: u8) -> HashMap<Symbol, Vec<Kline>> {
     data
 }
 
-
-pub async fn load_history_data_by_pair(pair_symbol:&str,month: u8) -> Vec<Kline> {
+pub async fn load_history_data_by_pair(pair_symbol: &str, month: u8) -> Vec<Kline> {
     let dir = "./history_kline";
     let file_name = format!("{}/{}-1m-2022-{:0>2}.csv", dir, pair_symbol, month);
     let mut symbol_klines = Vec::new();

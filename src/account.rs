@@ -1,7 +1,6 @@
-use std::ops::Deref;
 use crate::constant::{BNB_API_KEY, RECV_WINDOW};
-use crate::{get_unix_timestamp_ms, try_get};
 use crate::utils::hmac_sha256_sign;
+use crate::{get_unix_timestamp_ms, try_get};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 ///获取u本位账号基本信息（可用余额）
 ///
@@ -10,6 +9,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 //use serde_derive::Deserialize;
 //use serde_derive::Serialize;
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 pub type Balances = Vec<Balance>;
 
@@ -26,7 +26,6 @@ pub struct Balance {
     pub margin_available: bool,
     pub update_time: i64,
 }
-
 
 async fn try_get_balance(kline_url: String) -> Balances {
     let client = reqwest::Client::new();
@@ -84,7 +83,7 @@ pub async fn get_usdt_balance() -> f32 {
         request_parameter, signature
     );
     //todo: 1、签名 2、curl -H
-   let balances = try_get_balance(url).await;
+    let balances = try_get_balance(url).await;
     let balance_value = balances
         .iter()
         .map(|x| x.available_balance.parse::<f32>().unwrap())

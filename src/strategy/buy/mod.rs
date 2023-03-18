@@ -1,6 +1,6 @@
-pub enum  BuyReason {
+pub enum BuyReason {
     MoreThan2h,
-    VolumeTooFewInRecentBars
+    VolumeTooFewInRecentBars,
 }
 /*#[async_trait]
 pub trait BuyStrategy {

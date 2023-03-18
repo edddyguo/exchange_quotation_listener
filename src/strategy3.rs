@@ -1,9 +1,14 @@
-/// 两连阴就开仓策略，期望和strate2的配合一起使用
-use crate::{get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num, notify_lark, recent_kline_shape_score, take_order, timestamp2date, Kline, MathOperation, MathOperation2, Symbol, TakeOrderInfo, KLINE_NUM_FOR_FIND_SIGNAL, get_average_info, get_huge_volume_bar_num, INCREASE_VOLUME_LEVEL2, INCREASE_PRICE_LEVEL2};
-use std::collections::HashMap;
-use std::ops::{Div, Mul, Sub};
 use crate::constant::WEEK;
 use crate::kline::volume_too_few;
+/// 两连阴就开仓策略，期望和strate2的配合一起使用
+use crate::{
+    get_average_info, get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score,
+    get_raise_bar_num, notify_lark, recent_kline_shape_score, take_order, timestamp2date, Kline,
+    MathOperation, MathOperation2, Symbol, TakeOrderInfo, INCREASE_PRICE_LEVEL2,
+    INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
+};
+use std::collections::HashMap;
+use std::ops::{Div, Mul, Sub};
 
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
 async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
@@ -39,12 +44,14 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     ",
         market, recent_price_increase_rate, recent_huge_volume_bars_num
     );
-    debug!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
-    ,market
-    ,timestamp2date(line_datas[0].open_time)
-    ,timestamp2date(line_datas[359].open_time)
-    ,recent_price_increase_rate
-    ,recent_huge_volume_bars_num);
+    debug!(
+        "market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}",
+        market,
+        timestamp2date(line_datas[0].open_time),
+        timestamp2date(line_datas[359].open_time),
+        recent_price_increase_rate,
+        recent_huge_volume_bars_num
+    );
     if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 4 {
         return true;
     }
@@ -63,8 +70,10 @@ pub async fn sell(
     let now = line_datas[359].open_time + 1000;
     if is_break_through_market(pair_symbol, &line_datas).await {
         info!("found_break_signal：pair_symbol {}", pair_symbol);
-        let half_hour_inc_ratio = (line_datas[357].open_price.to_f32() - line_datas[327].open_price.to_f32()).div(30.0);
-        let ten_minutes_inc_ratio = (line_datas[357].open_price.to_f32() - line_datas[347].open_price.to_f32()).div(10.0);
+        let half_hour_inc_ratio =
+            (line_datas[357].open_price.to_f32() - line_datas[327].open_price.to_f32()).div(30.0);
+        let ten_minutes_inc_ratio =
+            (line_datas[357].open_price.to_f32() - line_datas[347].open_price.to_f32()).div(10.0);
 
         let broken_line_datas = &line_datas[339..359];
         let shape_score = get_last_bar_shape_score(broken_line_datas.to_owned());
@@ -78,8 +87,7 @@ pub async fn sell(
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
-        if
-        shape_score >= 4
+        if shape_score >= 4
             && volume_score >= 4
             && recent_shape_score >= 6
             && line_datas[358].open_price.to_f32() > line_datas[358].close_price.to_f32()
@@ -88,12 +96,20 @@ pub async fn sell(
         {
             let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
             if inc_ratio_distance < 1.2 {
-                warn!("strategy3-{}-{}-deny: inc_ratio_distance {}",
-                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+                warn!(
+                    "strategy3-{}-{}-deny: inc_ratio_distance {}",
+                    pair_symbol,
+                    timestamp2date(now),
+                    inc_ratio_distance
+                );
                 return Ok(false);
             } else {
-                warn!("strategy3-{}-{}-allow: inc_ratio_distance {}",
-                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+                warn!(
+                    "strategy3-{}-{}-allow: inc_ratio_distance {}",
+                    pair_symbol,
+                    timestamp2date(now),
+                    inc_ratio_distance
+                );
             }
 
             //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
@@ -120,7 +136,7 @@ pub async fn sell(
             push_text = format!("strategy3: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                 pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
             );
-            warn!("now {}, {}",timestamp2date(now),push_text);
+            warn!("now {}, {}", timestamp2date(now), push_text);
             if is_real_trading {
                 notify_lark(push_text).await?;
             }
@@ -135,7 +151,6 @@ pub async fn sell(
     }
     Ok(false)
 }
-
 
 //下单之后判断交易量，临近的三根必须大于五分之一，否则就大概率不是顶
 pub async fn buy(
@@ -152,11 +167,12 @@ pub async fn buy(
                 .open_price
                 .to_f32()
                 / take_info.price;
-            let interval_from_take = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
+            let interval_from_take =
+                line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
             let (can_buy, buy_reason) = if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
                 && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
             {
-                (true,"too few volume in last 3 bars")
+                (true, "too few volume in last 3 bars")
             //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
             //{
             //    (true,"last 10 bars volume too few")
@@ -164,15 +180,19 @@ pub async fn buy(
             //    && price_raise_ratio < 1.0
                 && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
             {
-                (true,"Positive income and held it for two hour，and price start increase")
+                (
+                    true,
+                    "Positive income and held it for two hour，and price start increase",
+                )
             //}else if interval_from_take >  WEEK {
             //    (true,"hold order for a weak,have to stop it")
-            }else {
-                (false,"")
+            } else {
+                (false, "")
             };
 
             //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-            if can_buy {//和多久之前的比较，比较多少根？
+            if can_buy {
+                //和多久之前的比较，比较多少根？
                 let push_text = format!(
                     "strategy3:buy_reason <<{}>>:: take_buy_order: market {},interval_from_take {}({}), price_raise_ratio {}",
                     buy_reason,pair_symbol, interval_from_take, timestamp2date(interval_from_take), price_raise_ratio
@@ -180,11 +200,10 @@ pub async fn buy(
                 //fixme: 这里remove会报错
                 //take_order_pair2.remove(pair_symbol);
                 if is_real_trading {
-                    take_order(pair_symbol.to_string(), take_info.amount, "BUY".to_string())
-                        .await;
+                    take_order(pair_symbol.to_string(), take_info.amount, "BUY".to_string()).await;
                     notify_lark(push_text.clone()).await?;
                 }
-                warn!("now {} , {}",timestamp2date(now),push_text);
+                warn!("now {} , {}", timestamp2date(now), push_text);
                 take_order_pair2.remove(pair_symbol);
                 return Ok((true, 1.0 - price_raise_ratio));
             } else {

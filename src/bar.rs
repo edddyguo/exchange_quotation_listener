@@ -19,7 +19,7 @@ pub fn get_raise_bar_num(bars: &[Kline]) -> u8 {
 //获取k线中巨量交易的k线
 pub fn get_huge_volume_bar_num(bars: &[Kline], min_volume: f32, ration: f32) -> u8 {
     //except the last bar
-    let (average_volume,average_price) = get_average_info(&bars[14..19]);
+    let (average_volume, average_price) = get_average_info(&bars[14..19]);
     let mut huge_volume_bars_num = 0;
     for (index, bar) in bars.iter().enumerate() {
         let increase_volume = (bar.volume.to_f32() - min_volume).div(min_volume);
@@ -72,7 +72,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     if last_bar.open_price.to_f32() > last_bar.close_price.to_f32() {
         score += 1;
         score_detail = format!("{},A:+1", score_detail);
-    }else{
+    } else {
         score = 0;
     }
 

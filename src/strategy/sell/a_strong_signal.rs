@@ -1,11 +1,14 @@
+use super::SellReason;
+use super::SellStrategy;
+use crate::ex_info::Symbol;
+use crate::utils::timestamp2date;
+use crate::{
+    get_last_bar_shape_score, get_last_bar_volume_score, notify_lark, recent_kline_shape_score,
+    take_order, Kline, MathOperation, MathOperation2, Pair, TakeOrderInfo, TakeType,
+};
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::{Div, Mul};
-use super::SellStrategy;
-use super::SellReason;
-use crate::{get_last_bar_shape_score, get_last_bar_volume_score, Kline, MathOperation, MathOperation2, notify_lark, Pair, recent_kline_shape_score, take_order, TakeOrderInfo, TakeType};
-use crate::ex_info::Symbol;
-use crate::utils::timestamp2date;
 
 pub struct ASS {}
 
@@ -14,15 +17,19 @@ impl ASS {
         SellReason::AStrongSignal
     }
 
-    pub async fn condition_passed(take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
-                              line_datas: &[Kline],
-                              pair: &Symbol,
-                              balance: f32,
-                              is_real_trading: bool) -> Result<bool, Box<dyn Error>> {
+    pub async fn condition_passed(
+        take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
+        line_datas: &[Kline],
+        pair: &Symbol,
+        balance: f32,
+        is_real_trading: bool,
+    ) -> Result<bool, Box<dyn Error>> {
         let pair_symbol = pair.symbol.as_str();
         let now = line_datas[359].open_time + 1000;
-        let half_hour_inc_ratio = (line_datas[357].open_price.to_f32() - line_datas[327].open_price.to_f32()).div(30.0);
-        let ten_minutes_inc_ratio = (line_datas[357].open_price.to_f32() - line_datas[347].open_price.to_f32()).div(10.0);
+        let half_hour_inc_ratio =
+            (line_datas[357].open_price.to_f32() - line_datas[327].open_price.to_f32()).div(30.0);
+        let ten_minutes_inc_ratio =
+            (line_datas[357].open_price.to_f32() - line_datas[347].open_price.to_f32()).div(10.0);
 
         let broken_line_datas = &line_datas[339..359];
         let shape_score = get_last_bar_shape_score(broken_line_datas.to_owned());
@@ -45,12 +52,20 @@ impl ASS {
         {
             let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
             if inc_ratio_distance < 1.2 {
-                warn!("strategy3-{}-{}-deny: inc_ratio_distance {}",
-                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+                warn!(
+                    "strategy3-{}-{}-deny: inc_ratio_distance {}",
+                    pair_symbol,
+                    timestamp2date(now),
+                    inc_ratio_distance
+                );
                 return Ok(false);
             } else {
-                warn!("strategy3-{}-{}-allow: inc_ratio_distance {}",
-                    pair_symbol,timestamp2date(now),inc_ratio_distance);
+                warn!(
+                    "strategy3-{}-{}-allow: inc_ratio_distance {}",
+                    pair_symbol,
+                    timestamp2date(now),
+                    inc_ratio_distance
+                );
             }
 
             //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
@@ -73,15 +88,15 @@ impl ASS {
                 top_bar: broken_line_datas[18].clone(),
                 is_took: true,
             };
-            let take_type= TakeType{
+            let take_type = TakeType {
                 pair: pair_symbol.to_string(),
-                sell_reason: Self::name()
+                sell_reason: Self::name(),
             };
             take_order_pair.insert(take_type, vec![order_info]);
             push_text = format!("strategy3: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                 pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
             );
-            warn!("now {}, {}",timestamp2date(now),push_text);
+            warn!("now {}, {}", timestamp2date(now), push_text);
             if is_real_trading {
                 notify_lark(push_text).await?;
             }

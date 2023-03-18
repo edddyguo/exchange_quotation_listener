@@ -78,7 +78,7 @@ pub fn recent_kline_shape_score(bars: Vec<Kline>) -> u8 {
             score += 1;
         }
     }
-    if score_tmp <= 2{
+    if score_tmp <= 2 {
         score = 0;
     }
     score
@@ -107,7 +107,7 @@ pub fn get_average_info(klines: &[Kline]) -> (f32, f32) {
 }
 
 //判断最近的交易量是否足够低迷，在平仓的时候使用
-pub fn volume_too_few(klines: &[Kline],reference_volume:f32) -> bool {
+pub fn volume_too_few(klines: &[Kline], reference_volume: f32) -> bool {
     let mut sum_volume = 0.0;
     for kline in klines {
         if kline.volume.to_f32() > reference_volume.div(8.0) {
@@ -117,7 +117,7 @@ pub fn volume_too_few(klines: &[Kline],reference_volume:f32) -> bool {
     }
     if sum_volume.div(klines.len() as f32) > reference_volume.div(10.0) {
         false
-    }else {
+    } else {
         true
     }
 }

@@ -4,7 +4,6 @@ extern crate core;
 #[macro_use]
 extern crate log;
 
-
 mod account;
 mod bar;
 mod constant;
@@ -14,9 +13,9 @@ mod history_data;
 mod kline;
 mod order;
 mod strategy;
-mod utils;
 mod strategy2;
 mod strategy3;
+mod utils;
 
 use crate::account::get_usdt_balance;
 use crate::bar::{
@@ -33,6 +32,10 @@ use crate::filters::Root;
 use crate::history_data::{download_history_data, load_history_data, load_history_data_by_pair};
 use crate::kline::{get_average_info, get_current_price, recent_kline_shape_score};
 use crate::order::take_order;
+use crate::strategy::sell::SellReason::{
+    AStrongSignal, RaiseIsStop, ThreeContinuousSignal, TwoMiddleSignal,
+};
+use crate::strategy::sell::TakeType;
 use crate::utils::{get_unix_timestamp_ms, timestamp2date, MathOperation, MathOperation2};
 use chrono::prelude::*;
 use clap::{App, ArgMatches};
@@ -43,8 +46,6 @@ use std::error::Error;
 use std::ops::{Deref, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
-use crate::strategy::sell::SellReason::{AStrongSignal, RaiseIsStop, ThreeContinuousSignal, TwoMiddleSignal};
-use crate::strategy::sell::TakeType;
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -195,15 +196,23 @@ pub async fn excute_real_trading() {
     }*/
 }
 
-pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>, month: u8) -> Vec<(SellReason, f32, u32)> {
+pub async fn execute_back_testing(
+    history_data: HashMap<Symbol, Vec<Kline>>,
+    month: u8,
+) -> Vec<(SellReason, f32, u32)> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
-    let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> = vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
+    let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> =
+        vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
     for (pair, klines) in history_data {
-        warn!("start test {},klines size {}", pair.symbol.as_str(),klines.len());
+        warn!(
+            "start test {},klines size {}",
+            pair.symbol.as_str(),
+            klines.len()
+        );
         let mut index = 0;
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
@@ -215,28 +224,31 @@ pub async fn execute_back_testing(history_data: HashMap<Symbol, Vec<Kline>>, mon
                     sell_reason: reason.clone(),
                 };
                 // fixme：_is_took 是否已经不需要了？
-                let (_is_took, profit) = strategy::buy(
-                    &mut take_order_pair,
-                    take_type,
-                    &line_datas,
-                    false,
-                ).await.unwrap();
+                let (_is_took, profit) =
+                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
+                        .await
+                        .unwrap();
                 *total_profit += profit;
                 //只有下了卖单和买单的才统计收益
                 if profit != 0.0 {
                     *total_profit -= 0.0008;
                     *txs += 2;
-                    info!("all_reason_total_profit total_profit {} txs {}",*total_profit,*txs);
+                    info!(
+                        "all_reason_total_profit total_profit {} txs {}",
+                        *total_profit, *txs
+                    );
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
                 /* if is_took {
-                     continue;
-                 }*/
+                    continue;
+                }*/
             }
 
             //避开eth的强势时间的信号
-            if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03 {
+            if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32()
+                > 1.03
+            {
                 continue;
             }
 
@@ -253,7 +265,8 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
-    let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> = vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
+    let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> =
+        vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
     let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
@@ -275,24 +288,29 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
                     sell_reason: reason.clone(),
                 };
                 // fixme：_is_took 是否已经不需要了？
-                let (_is_took, profit) = strategy::buy(
-                    &mut take_order_pair,
-                    take_type,
-                    &line_datas,
-                    false,
-                ).await.unwrap();
+                let (_is_took, profit) =
+                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
+                        .await
+                        .unwrap();
                 *total_profit += profit;
                 //只有下了卖单和买单的才统计收益
                 if profit != 0.0 {
                     *total_profit -= 0.0008;
                     *txs += 2;
-                    info!("tmp:month {} pair {} reason {} total_profit {} txs {}",month,pair.symbol,reason.to_string(),*total_profit,*txs);
+                    info!(
+                        "tmp:month {} pair {} reason {} total_profit {} txs {}",
+                        month,
+                        pair.symbol,
+                        reason.to_string(),
+                        *total_profit,
+                        *txs
+                    );
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
                 /* if is_took {
-                     continue;
-                 }*/
+                    continue;
+                }*/
             }
 
             /***
@@ -309,8 +327,6 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
     }
     return all_reason_total_profit;
 }
-
-
 
 /*pub async fn execute_back_testing3(month: u8) -> Vec<(SellReason, f32, u32)> {
     let balance = 10.0;
@@ -376,7 +392,6 @@ pub async fn execute_back_testing2(month: u8) -> Vec<(SellReason, f32, u32)> {
     return all_reason_total_profit.read().unwrap().deref().to_vec();
 }*/
 
-
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
 //策略：1h的k线，涨幅百分之1，量增加2倍
 #[tokio::main]
@@ -403,7 +418,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let history_data = load_history_data(month).await;
                 let datas = execute_back_testing(history_data, month).await;
                 for (reason, total_profit, txs) in datas {
-                    warn!("month {},reason {}, total_profit {},total txs {}",month,reason.to_string(),total_profit,txs);
+                    warn!(
+                        "month {},reason {}, total_profit {},total txs {}",
+                        month,
+                        reason.to_string(),
+                        total_profit,
+                        txs
+                    );
                 }
             }
         }
@@ -412,7 +433,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             for month in 1..=12 {
                 let datas = execute_back_testing2(month).await;
                 for (reason, total_profit, txs) in datas {
-                    warn!("month {},reason {}, total_profit {},total txs {}",month,reason.to_string(),total_profit,txs);
+                    warn!(
+                        "month {},reason {}, total_profit {},total txs {}",
+                        month,
+                        reason.to_string(),
+                        total_profit,
+                        txs
+                    );
                 }
             }
         }
@@ -425,7 +452,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         rt.block_on(async move {
                             let datas = execute_back_testing2(month).await;
                             for (reason, total_profit, txs) in datas {
-                                warn!("finally: month {},reason {}, total_profit {},total txs {}",line!(),month,reason.to_string(),total_profit,txs);
+                                warn!(
+                                    "finally: month {},reason {}, total_profit {},total txs {}",
+                                    month,
+                                    reason.to_string(),
+                                    total_profit,
+                                    txs
+                                );
                             }
                         });
                     });

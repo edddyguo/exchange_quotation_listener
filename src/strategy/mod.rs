@@ -1,14 +1,19 @@
 mod buy;
 pub(crate) mod sell;
 
-use crate::{get_last_bar_shape_score, get_last_bar_volume_score, get_raise_bar_num, notify_lark, recent_kline_shape_score, take_order, timestamp2date, Kline, MathOperation, MathOperation2, Symbol, TakeOrderInfo, KLINE_NUM_FOR_FIND_SIGNAL, get_average_info, get_huge_volume_bar_num, INCREASE_VOLUME_LEVEL2, INCREASE_PRICE_LEVEL2, Pair, strategy, TakeType};
-use std::collections::HashMap;
-use std::ops::{Div, Mul, Sub};
 use crate::constant::WEEK;
 use crate::kline::volume_too_few;
 use crate::strategy::sell::a_strong_signal::ASS;
-use crate::strategy::sell::{SellReason, SellStrategy};
 use crate::strategy::sell::two_middle_signal::TMS;
+use crate::strategy::sell::{SellReason, SellStrategy};
+use crate::{
+    get_average_info, get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score,
+    get_raise_bar_num, notify_lark, recent_kline_shape_score, strategy, take_order, timestamp2date,
+    Kline, MathOperation, MathOperation2, Pair, Symbol, TakeOrderInfo, TakeType,
+    INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
+};
+use std::collections::HashMap;
+use std::ops::{Div, Mul, Sub};
 
 pub struct OrderData {
     pair: String,
@@ -16,6 +21,14 @@ pub struct OrderData {
     sell_time: u64,
     buy_time: u64,
     increase_ratio: f32,
+}
+
+struct StrategyEffect{
+    txs:u32,
+    win_txs:u32,
+    lose_txs:u32,
+    total_profit:u32,
+    win_ratio:f32,
 }
 
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
@@ -32,10 +45,10 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         .high_price
         .to_f32();
     //最近2小时，交易量不能有大于准顶量1.5倍的
-    for (index,bar) in line_datas[..358].iter().enumerate() {
+    for (index, bar) in line_datas[..358].iter().enumerate() {
         if index <= 340 && bar.volume.to_f32().div(10.0) > line_datas[358].volume.to_f32() {
             return false;
-        }else if index > 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
+        } else if index > 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
             return false;
         }
     }
@@ -52,12 +65,14 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
     ",
         market, recent_price_increase_rate, recent_huge_volume_bars_num
     );
-    debug!("market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}"
-    ,market
-    ,timestamp2date(line_datas[0].open_time)
-    ,timestamp2date(line_datas[359].open_time)
-    ,recent_price_increase_rate
-    ,recent_huge_volume_bars_num);
+    debug!(
+        "market {},start {} ,end {}: recent_price_increase_rate {},recent_huge_volume_bars_num {}",
+        market,
+        timestamp2date(line_datas[0].open_time),
+        timestamp2date(line_datas[359].open_time),
+        recent_price_increase_rate,
+        recent_huge_volume_bars_num
+    );
     if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 4 {
         return true;
     }
@@ -73,12 +88,12 @@ pub async fn sell(
     is_real_trading: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pair_symbol = pair.symbol.as_str();
-    if !is_break_through_market(pair_symbol,&line_datas).await {
+    if !is_break_through_market(pair_symbol, &line_datas).await {
         debug!("Have no obvious break signal");
         return Ok(false);
     }
-    ASS::condition_passed(take_order_pair2,line_datas,pair,balance,is_real_trading).await?;
-    TMS::condition_passed(take_order_pair2,line_datas,pair,balance,is_real_trading).await?;
+    ASS::condition_passed(take_order_pair2, line_datas, pair, balance, is_real_trading).await?;
+    TMS::condition_passed(take_order_pair2, line_datas, pair, balance, is_real_trading).await?;
     Ok(true)
 }
 
@@ -101,35 +116,45 @@ pub async fn buy(
                     .to_f32()
                     / take_info.price;
 
-                let interval_from_take = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
+                let interval_from_take =
+                    line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
                 //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
                 let (can_buy, buy_reason) = if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
                     && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
                 {
-                    (true,"too few volume in last 3 bars")
+                    (true, "too few volume in last 3 bars")
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
                     //{
                     //    (true,"last 10 bars volume too few")
-                } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
+                } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time
+                    > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
-                    (true,"Positive income and held it for two hour，and price start increase")
-                }else {
-                    (false,"")
+                    (
+                        true,
+                        "Positive income and held it for two hour，and price start increase",
+                    )
+                } else {
+                    (false, "")
                 };
-                if can_buy {//和多久之前的比较，比较多少根？
+                if can_buy {
+                    //和多久之前的比较，比较多少根？
                     let push_text = format!(
                         "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
                         buy_reason, pair_and_sell_reason.sell_reason.to_string(),pair_and_sell_reason.pair, price_raise_ratio);
                     //fixme: 这里remove会报错
                     //take_order_pair2.remove(pair_symbol);
                     if is_real_trading {
-                        take_order(pair_and_sell_reason.pair.clone(), take_info.amount, "BUY".to_string())
-                            .await;
+                        take_order(
+                            pair_and_sell_reason.pair.clone(),
+                            take_info.amount,
+                            "BUY".to_string(),
+                        )
+                        .await;
                         notify_lark(push_text.clone()).await?;
                     }
                     take_order_pair.remove(&pair_and_sell_reason);
-                    warn!("now {} , {}",timestamp2date(now),push_text);
+                    warn!("now {} , {}", timestamp2date(now), push_text);
                     return Ok((true, 1.0 - price_raise_ratio));
                 } else {
                     return Ok((true, 0.0));
