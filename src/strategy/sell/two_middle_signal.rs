@@ -21,7 +21,8 @@ impl TMS {
         take_order_pair2: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
         line_datas: &[Kline],
         pair: &Symbol,
-        balance: f32,
+        taker_amount: f32,
+        price: f32,
         is_real_trading: bool,
     ) -> Result<bool, Box<dyn Error>> {
         let pair_symbol = pair.symbol.as_str();
@@ -49,15 +50,6 @@ impl TMS {
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
         if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
-            //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
-            let price = broken_line_datas[19].open_price.parse::<f32>().unwrap();
-
-            //default lever ratio is 20x,每次2成仓位20倍
-            let taker_amount = balance
-                .mul(20.0)
-                .div(10.0)
-                .div(price)
-                .to_fix(pair.quantity_precision as u32);
             let mut push_text = "".to_string();
             let take_info = take_order_pair2.get(&take_sell_type);
             //二次拉升才下单,并且量大于2倍

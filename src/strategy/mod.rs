@@ -14,6 +14,7 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
+use crate::strategy::sell::three_continuous_signal::TCS;
 
 pub struct OrderData {
     pair: String,
@@ -84,8 +85,16 @@ pub async fn sell(
         debug!("Have no obvious break signal");
         return Ok(false);
     }
-    ASS::condition_passed(take_order_pair2, line_datas, pair, balance, is_real_trading).await?;
-    TMS::condition_passed(take_order_pair2, line_datas, pair, balance, is_real_trading).await?;
+    //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
+    let price = line_datas[359].open_price.parse::<f32>().unwrap();
+    let taker_amount = balance
+        .mul(20.0)
+        .div(20.0)
+        .div(price)
+        .to_fix(pair.quantity_precision as u32);
+    ASS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
+    TMS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
+    TCS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
     Ok(true)
 }
 

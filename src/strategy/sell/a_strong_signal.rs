@@ -21,7 +21,8 @@ impl ASS {
         take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
         line_datas: &[Kline],
         pair: &Symbol,
-        balance: f32,
+        taker_amount: f32,
+        price:f32,
         is_real_trading: bool,
     ) -> Result<bool, Box<dyn Error>> {
         let pair_symbol = pair.symbol.as_str();
@@ -69,14 +70,6 @@ impl ASS {
             }
 
             //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
-            let price = line_datas[359].open_price.parse::<f32>().unwrap();
-
-            //default lever ratio is 20x,每次2成仓位20倍
-            let taker_amount = balance
-                .mul(20.0)
-                .div(10.0)
-                .div(price)
-                .to_fix(pair.quantity_precision as u32);
             let mut push_text = "".to_string();
             if is_real_trading {
                 take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;

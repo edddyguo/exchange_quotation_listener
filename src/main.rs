@@ -290,7 +290,10 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
     let mut all_reason_total_profit: Vec<StrategyEffect> =
-        vec![StrategyEffect::new(AStrongSignal), StrategyEffect::new(TwoMiddleSignal)];
+        vec![StrategyEffect::new(AStrongSignal),
+             StrategyEffect::new(TwoMiddleSignal),
+             StrategyEffect::new(ThreeContinuousSignal)
+        ];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
     let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
@@ -342,9 +345,6 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
              */
 
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
-            if index >= 50000 {
-                break;
-            }
         }
     }
     return all_reason_total_profit;
