@@ -46,6 +46,7 @@ use std::error::Error;
 use std::ops::{Deref, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
+use crate::SellReason::AVeryStrongSignal;
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -292,7 +293,8 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
     let mut all_reason_total_profit: Vec<StrategyEffect> =
         vec![StrategyEffect::new(AStrongSignal),
              StrategyEffect::new(TwoMiddleSignal),
-             StrategyEffect::new(ThreeContinuousSignal)
+             StrategyEffect::new(ThreeContinuousSignal),
+             StrategyEffect::new(AVeryStrongSignal)
         ];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
