@@ -75,7 +75,7 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
 
 //配合buy放宽顶部信号条件
 pub async fn sell(
-    take_order_pair2: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
+    take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
     line_datas: &[Kline],
     pair: &Symbol,
     balance: f32,
@@ -94,23 +94,23 @@ pub async fn sell(
         .div(price)
         .to_fix(pair.quantity_precision as u32);
     //todo: 将其中通用的计算逻辑拿出来
-    ASS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
-    TMS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
-    TCS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
-    AVSS::condition_passed(take_order_pair2, line_datas, pair, taker_amount,price, is_real_trading).await?;
+    ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     Ok(true)
 }
 
 //(Pair,SellReason)
-//下单之后判断交易量，临近的三根必须大于五分之一，否则就大概率不是顶
+//不处理返回值对：多次确认的逻辑没有影响，对单次确认的来说，有可能造成短期多次下单，单这个也是没毛病的
 pub async fn buy(
     take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
-    pair_and_sell_reason: TakeType,
+    taker_type: TakeType,
     line_datas: &[Kline],
     is_real_trading: bool,
 ) -> Result<(bool, f32), Box<dyn std::error::Error>> {
     let now = line_datas[359].open_time + 1000;
-    match take_order_pair.get(&pair_and_sell_reason) {
+    match take_order_pair.get(&taker_type) {
         None => {}
         Some(take_infos) => {
             let take_info = take_infos.last().unwrap();
@@ -143,22 +143,22 @@ pub async fn buy(
                 };
                 if can_buy {
                     //和多久之前的比较，比较多少根？
-                    let sell_reason_str:&str = pair_and_sell_reason.clone().sell_reason.into();
+                    let sell_reason_str:&str = taker_type.clone().sell_reason.into();
                     let push_text = format!(
                         "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                        buy_reason, sell_reason_str,pair_and_sell_reason.pair, price_raise_ratio);
+                        buy_reason, sell_reason_str, taker_type.pair, price_raise_ratio);
                     //fixme: 这里remove会报错
                     //take_order_pair2.remove(pair_symbol);
                     if is_real_trading {
                         take_order(
-                            pair_and_sell_reason.pair.clone(),
+                            taker_type.pair.clone(),
                             take_info.amount,
                             "BUY".to_string(),
                         )
                         .await;
                         notify_lark(push_text.clone()).await?;
                     }
-                    take_order_pair.remove(&pair_and_sell_reason);
+                    take_order_pair.remove(&taker_type);
                     warn!("now {} , {}", timestamp2date(now), push_text);
                     return Ok((true, 1.0 - price_raise_ratio));
                 } else {
@@ -167,7 +167,7 @@ pub async fn buy(
             } else {
                 //加入观察列表五分钟内不在观察，2小时内仍没有二次拉起的则将其移除观察列表
                 if now.sub(take_info.take_time) > 4 * 60 * 60 * 1000 {
-                    take_order_pair.remove(&pair_and_sell_reason);
+                    take_order_pair.remove(&taker_type);
                 }
             }
         }

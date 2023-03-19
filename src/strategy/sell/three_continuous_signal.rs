@@ -51,11 +51,11 @@ impl TCS {
         if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
             let mut push_text = "".to_string();
             let take_info = take_order_pair2.get_mut(&take_sell_type);
-            let last_volume = take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32();
             //d多次砸盘，最后一次量保证
             if take_info.as_ref().is_some()
                 && take_info.as_ref().unwrap().len() >= 2
-                && broken_line_datas[18].volume.to_f32().div(1.0) > last_volume
+                && broken_line_datas[18].volume.to_f32().div(1.0) >
+                take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
             {
                 if is_real_trading {
                     take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;

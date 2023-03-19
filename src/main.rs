@@ -186,9 +186,8 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 }
 
 pub async fn excute_real_trading() {
-    todo!()
-    /*let all_pairs = list_all_pair().await;
-    let mut take_order_pair2: HashMap<(Pair, SellReason), Vec<TakeOrderInfo>> = HashMap::new();
+    let all_pairs = list_all_pair().await;
+    let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     loop {
         let balance = get_usdt_balance().await;
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
@@ -198,27 +197,27 @@ pub async fn excute_real_trading() {
                 KLINE_NUM_FOR_FIND_SIGNAL
             );
             let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
-            //todo: 目前人工维护已下单数据，后期考虑链上获取
-            let mut all_reason_total_profit: Vec<(SellReason, f32)> = vec![(AStrongSignal, 0.0), (RaiseIsStop, 0.0), (ThreeContinuousSignal, 0.0), (TwoMiddleSignal, 0.0)];
-            for (reason2, mut _total_profit) in all_reason_total_profit {
-                let (is_took,_profit) = strategy::buy(
-                    &mut take_order_pair,
-                    (pair.symbol.clone(),reason2),
-                    &line_datas,
-                    false,
-                ).await.unwrap();
-                //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
-                if is_took {
-                    continue;
-                }
+            let mut all_reason_total_profit: Vec<StrategyEffect> =
+                vec![StrategyEffect::new(AStrongSignal),
+                     StrategyEffect::new(TwoMiddleSignal),
+                     StrategyEffect::new(ThreeContinuousSignal),
+                     StrategyEffect::new(AVeryStrongSignal)
+                ];
+            for effect in all_reason_total_profit {
+                let taker_type = TakeType {
+                    pair: pair.symbol.clone(),
+                    sell_reason: SellReason::from(effect.sell_reason.as_str()),
+                };
+                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true, ).await.unwrap();
+
             }
-            let _ = strategy::sell(&mut take_order_pair2, &line_datas, &pair, balance, true).await;
+            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, true).await;
         }
         //严格等待到下一分钟
         let distance_next_minute_time = 60000 - get_unix_timestamp_ms() % 60000;
         std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
         warn!("complete listen all pairs,and start next minute");
-    }*/
+    }
 }
 
 pub async fn execute_back_testing(
