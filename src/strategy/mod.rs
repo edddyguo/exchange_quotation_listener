@@ -15,6 +15,7 @@ use crate::{
 use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
 use crate::strategy::sell::a_very_strong_signal::AVSS;
+use crate::strategy::sell::sequential_take_order::STO;
 use crate::strategy::sell::three_continuous_signal::TCS;
 
 pub struct OrderData {
@@ -82,27 +83,41 @@ pub async fn sell(
     is_real_trading: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pair_symbol = pair.symbol.as_str();
-    if !is_break_through_market(pair_symbol, &line_datas).await {
+    let take_type = TakeType {
+        pair: pair_symbol.to_string(),
+        sell_reason: SellReason::SequentialTakeOrder,
+    };
+    let take_info = take_order_pair.get(&take_type);
+
+    if take_info.is_none() && !is_break_through_market(pair_symbol, &line_datas).await {
         debug!("Have no obvious break signal");
         return Ok(false);
     }
     //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
     let price = line_datas[359].open_price.parse::<f32>().unwrap();
-    let taker_amount = balance
-        .mul(20.0)
-        .div(20.0)
-        .div(price)
-        .to_fix(pair.quantity_precision as u32);
+    let taker_amount = match take_info {
+        None => {
+            balance
+                .mul(20.0)
+                .div(20.0)
+                .div(price)
+                .to_fix(pair.quantity_precision as u32)
+        }
+        Some(data) => { data.last().unwrap().amount }
+    };
     //todo: 将其中通用的计算逻辑拿出来
-    ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    //ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    //TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    //TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    //AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    STO::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+
     Ok(true)
 }
 
 //(Pair,SellReason)
 //不处理返回值对：多次确认的逻辑没有影响，对单次确认的来说，有可能造成短期多次下单，单这个也是没毛病的
+/***
 pub async fn buy(
     take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
     taker_type: TakeType,
@@ -169,6 +184,68 @@ pub async fn buy(
                 if now.sub(take_info.take_time) > 4 * 60 * 60 * 1000 {
                     take_order_pair.remove(&taker_type);
                 }
+            }
+        }
+    }
+    Ok((false, 0.0))
+}
+***/
+
+
+pub async fn buy(
+    take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
+    taker_type: TakeType,
+    line_datas: &[Kline],
+    is_real_trading: bool,
+) -> Result<(bool, f32), Box<dyn std::error::Error>> {
+    let now = line_datas[359].open_time + 1000;
+    match take_order_pair.get(&taker_type) {
+        None => {}
+        Some(take_infos) => {
+            let last_take_info = take_infos.last().unwrap();
+            //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
+            let (can_buy, buy_reason)= if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 60].open_time
+                > last_take_info.take_time
+                && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
+            {
+                (
+                    true,
+                    "Positive income and held it for two hour，and price start increase",
+                )
+            } else {
+                (false, "")
+            };
+            if can_buy {
+                //和多久之前的比较，比较多少根？
+                let sell_reason_str: &str = taker_type.clone().sell_reason.into();
+                let push_text = format!(
+                    "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {}",
+                    buy_reason, sell_reason_str, taker_type.pair);
+                //fixme: 这里remove会报错
+                //take_order_pair2.remove(pair_symbol);
+                if is_real_trading {
+                    take_order(
+                        taker_type.pair.clone(),
+                        last_take_info.amount * take_infos.len() as f32,
+                        "BUY".to_string(),
+                    )
+                        .await;
+                    notify_lark(push_text.clone()).await?;
+                }
+                //计算总的收入
+                let mut batch_profit = 0.0f32;
+                let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
+                    .open_price
+                    .to_f32();
+                for take_info in take_infos{
+                    let price_raise_ratio = current_price / take_info.price;
+                    batch_profit += 1.0 - price_raise_ratio;
+                }
+                take_order_pair.remove(&taker_type);
+                warn!("now {} , {}", timestamp2date(now), push_text);
+                return Ok((true, batch_profit));
+            } else {
+                return Ok((true, 0.0));
             }
         }
     }

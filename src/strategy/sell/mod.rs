@@ -1,5 +1,5 @@
 pub mod a_strong_signal;
-pub mod raise_is_stop;
+pub mod sequential_take_order;
 pub mod three_continuous_signal;
 pub mod two_middle_signal;
 pub mod a_very_strong_signal;
@@ -23,6 +23,7 @@ pub enum SellReason {
     TwoMiddleSignal,
     ThreeContinuousSignal,
     RaiseIsStop,
+    SequentialTakeOrder
 }
 
 /*impl SellReason {
@@ -44,6 +45,7 @@ impl From<&str> for SellReason {
             "TwoMiddleSignal" => SellReason::TwoMiddleSignal,
             "ThreeContinuousSignal" =>  SellReason::ThreeContinuousSignal,
             "RaiseIsStop" => SellReason::RaiseIsStop,
+            "SequentialTakeOrder" => SellReason::SequentialTakeOrder,
             _  => unreachable!()
         }
     }
@@ -57,6 +59,7 @@ impl From<SellReason> for &str {
             SellReason::TwoMiddleSignal => "TwoMiddleSignal",
             SellReason::ThreeContinuousSignal => "ThreeContinuousSignal",
             SellReason::RaiseIsStop => "RaiseIsStop",
+            SellReason::SequentialTakeOrder => "SequentialTakeOrder",
         }
     }
 }
