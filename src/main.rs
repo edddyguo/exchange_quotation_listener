@@ -86,6 +86,16 @@ pub struct Kline {
     unused_field: String,
 }
 
+impl Kline {
+    pub fn is_raise(&self) -> bool {
+        if self.open_price.to_f32() < self.close_price.to_f32() {
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct RateLimits {
     rateLimitType: String,
@@ -106,25 +116,25 @@ pub struct TakeOrderInfo {
 }
 
 #[derive(Debug)]
-pub struct StrategyEffect{
-    sell_reason:String,
-    txs:u32,
-    win_txs:u32,
-    lose_txs:u32,
-    total_profit:f32,
-    win_ratio:f32,
+pub struct StrategyEffect {
+    sell_reason: String,
+    txs: u32,
+    win_txs: u32,
+    lose_txs: u32,
+    total_profit: f32,
+    win_ratio: f32,
 }
 
-impl StrategyEffect{
-    pub fn new(sell_reason:SellReason) -> Self{
-        let reason_str:&str = sell_reason.into();
-        StrategyEffect{
-            sell_reason:reason_str.to_owned(),
+impl StrategyEffect {
+    pub fn new(sell_reason: SellReason) -> Self {
+        let reason_str: &str = sell_reason.into();
+        StrategyEffect {
+            sell_reason: reason_str.to_owned(),
             txs: 0,
             win_txs: 0,
             lose_txs: 0,
             total_profit: 0.0,
-            win_ratio: 0.0
+            win_ratio: 0.0,
         }
     }
 }
@@ -201,15 +211,14 @@ pub async fn excute_real_trading() {
                 vec![StrategyEffect::new(AStrongSignal),
                      StrategyEffect::new(TwoMiddleSignal),
                      StrategyEffect::new(ThreeContinuousSignal),
-                     StrategyEffect::new(AVeryStrongSignal)
+                     StrategyEffect::new(AVeryStrongSignal),
                 ];
             for effect in all_reason_total_profit {
                 let taker_type = TakeType {
                     pair: pair.symbol.clone(),
                     sell_reason: SellReason::from(effect.sell_reason.as_str()),
                 };
-                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true, ).await.unwrap();
-
+                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true).await.unwrap();
             }
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, true).await;
         }
@@ -291,11 +300,11 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
     ///reason,total_profit,txs
     let mut all_reason_total_profit: Vec<StrategyEffect> =
         vec![
-/*            StrategyEffect::new(AStrongSignal),
-             StrategyEffect::new(TwoMiddleSignal),
-             StrategyEffect::new(ThreeContinuousSignal),
-             StrategyEffect::new(AVeryStrongSignal),*/
-             StrategyEffect::new(SequentialTakeOrder)
+            /*            StrategyEffect::new(AStrongSignal),
+                         StrategyEffect::new(TwoMiddleSignal),
+                         StrategyEffect::new(ThreeContinuousSignal),
+                         StrategyEffect::new(AVeryStrongSignal),*/
+            StrategyEffect::new(SequentialTakeOrder)
         ];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
@@ -325,11 +334,11 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
                 effect.total_profit += profit;
                 //只有下了卖单和买单的才统计收益
                 if profit != 0.0 {
-                    effect.total_profit -= 0.0008;
+                    //effect.total_profit -= 0.0008;
                     effect.txs += 1;
                     if profit > 0.0 {
                         effect.win_txs += 1;
-                    }else {
+                    } else {
                         effect.lose_txs += 1;
                     }
                     info!("tmp:month {} ,detail {:?}",month,effect);
@@ -341,11 +350,13 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
                 }*/
             }
 
-            /***
-            if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03 {
+
+            if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03
+                || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.05)
+            {
                 continue;
             }
-             */
+
 
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
         }
@@ -353,69 +364,61 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
     return all_reason_total_profit;
 }
 
-/*pub async fn execute_back_testing3(month: u8) -> Vec<(SellReason, f32, u32)> {
-    let balance = 10.0;
-    let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
+//开多仓逻辑,1天后平仓
+pub async fn execute_back_testing4(month: u8) -> Vec<StrategyEffect> {
+    let mut take_order_pair: HashMap<String, (u64, f32)> = HashMap::new();
     ///reason,total_profit,txs
-    let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> = vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
-    let all_reason_total_profit = Arc::new(RwLock::new(all_reason_total_profit));
-    //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
+    let mut all_reason_total_profit: Vec<StrategyEffect> = vec![StrategyEffect::new(SellReason::Buy1)];
     let all_pairs = list_all_pair().await;
-    let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
-    rayon::scope(|scope| {
-        let all_reason_total_profit = all_reason_total_profit.clone();
-        let eth_klines = eth_klines.clone();
-        scope.spawn(move |_| {
-            'loop_pair:for pair in all_pairs.iter() {
-                let rt = Runtime::new().unwrap();
-                rt.block_on(async move {
-                    let klines = load_history_data_by_pair(&pair.symbol, month).await;
-                    if klines.is_empty() {
-                        return;
-                    }
-                    let mut index = 0;
-                    for bar in &klines[359..] {
-                        let line_datas = &klines[index..(index + 360)];
-                        index += 1;
-                        if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03 {
-                            continue;
-                        }
-                        assert_eq!(bar.open_time, line_datas[359].open_time);
-                        for (reason, total_profit, txs) in all_reason_total_profit.clone().write().unwrap().iter_mut() {
-                            let take_type = TakeType {
-                                pair: pair.symbol.clone(),
-                                sell_reason: reason.clone(),
-                            };
-                            // fixme：_is_took 是否已经不需要了？
-                            let (_is_took, profit) = strategy::buy(
-                                &mut take_order_pair,
-                                take_type,
-                                &line_datas,
-                                false,
-                            ).await.unwrap();
-                            *total_profit += profit;
-                            //只有下了卖单和买单的才统计收益
-                            if profit != 0.0 {
-                                *total_profit -= 0.0008;
-                                *txs += 2;
-                                info!("all_reason_total_profit total_profit {} txs {}",*total_profit,*txs);
-                            }
-                            //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
-                            //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
-                            /* if is_took {
-                                 continue;
-                             }*/
-                        }
+    let mut profit_info = (0u32,0u32,0u32,0.0f32);
+    for pair in all_pairs.iter() {
+        warn!("start test {}", pair.symbol.as_str());
+        let klines = load_history_data_by_pair(&pair.symbol, month).await;
+        if klines.is_empty() {
+            continue;
+        }
+        let mut index = 0;
+        //txs,win_txs,lose_txs,per_ratio,total_ratio
+        for bar in &klines[359..] {
+            let line_datas = &klines[index..(index + 360)];
+            index += 1;
 
-                        let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+            let mut recent_klines = line_datas[index..(index + 358)].to_owned();
+            let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
+            match take_order_pair.clone().get_mut(&pair.symbol) {
+                None => {
+                    if bar.volume.to_f32() / recent_average_volume >= 50.0
+                        && bar.close_price.to_f32() / recent_average_price >= 1.02
+                    {
+                        take_order_pair.insert(pair.symbol.clone(), (bar.open_time, bar.close_price.to_f32()));
+                        //todo: start buy
                     }
-                });
+                }
+                Some(info) => {
+                    //6小时强制平多单
+                    if bar.open_time - info.to_owned().0 >  6 * 60 * 1000{
+                        //start sell
+                        take_order_pair.remove(&pair.symbol);
+                        //txs,win_txs,lose_txs,per_ratio,total_ratio
+                        profit_info.0 += 1;
+                        let raise_ratio = bar.open_price.to_f32() - info.to_owned().1;
+                        if raise_ratio > 0.0 {
+                            profit_info.1 += 1
+                        }else {
+                            profit_info.2 += 1
+                        }
+                        profit_info.3 += raise_ratio;
+                        info!("tmp0002:pair {},data {},raise_ratio {}",pair.symbol,bar.open_time,raise_ratio);
+                    }
+                }
             }
-        });
-    });
+        }
 
-    return all_reason_total_profit.read().unwrap().deref().to_vec();
-}*/
+    }
+    info!("tmp0003:month {} txs {},win_txs {},lose_txs {},total_ratio {}",
+        month,profit_info.0,profit_info.1,profit_info.2,profit_info.3);
+    return all_reason_total_profit;
+}
 
 //binance-doc: https://binance-docs.github.io/apidocs/spot/en/#public-api-definitions
 //策略：1h的k线，涨幅百分之1，量增加2倍
@@ -430,6 +433,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .subcommand(App::new("back_testing"))
         .subcommand(App::new("back_testing2"))
         .subcommand(App::new("back_testing3"))
+        .subcommand(App::new("back_testing4"))
         .subcommand(App::new("download_history_kline"))
         .get_matches();
     match matches.subcommand() {
@@ -443,7 +447,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let history_data = load_history_data(month).await;
                 let datas = execute_back_testing(history_data, month).await;
                 for (reason, total_profit, txs) in datas {
-                    let reason_str:&str = reason.into();
+                    let reason_str: &str = reason.into();
                     warn!(
                         "month {},reason {}, total_profit {},total txs {}",
                         month,
@@ -474,6 +478,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             for data in datas {
                                 warn!("finally: month {},detail {:?}",month,data);
                             }
+                        });
+                    });
+                }
+            });
+        }
+        Some(("back_testing4", _sub_matches)) => {
+            println!("back_testing4");
+            rayon::scope(|scope| {
+                for month in 1..=12 {
+                    scope.spawn(move |_| {
+                        let rt = Runtime::new().unwrap();
+                        rt.block_on(async move {
+                            execute_back_testing4(month).await;
                         });
                     });
                 }

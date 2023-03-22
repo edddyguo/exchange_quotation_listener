@@ -93,6 +93,16 @@ pub async fn sell(
         debug!("Have no obvious break signal");
         return Ok(false);
     }
+    if take_info.is_some() {
+        for (index, bar) in line_datas[180..358].iter().enumerate() {
+            if index <= 340 && bar.is_raise() && bar.volume.to_f32().div(3.0) > line_datas[358].volume.to_f32() {
+                return Ok(false);
+            } else if index > 340 && bar.is_raise() && bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32() {
+                return Ok(false);
+            }
+        }
+    }
+
     //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
     let price = line_datas[359].open_price.parse::<f32>().unwrap();
     let taker_amount = match take_info {
@@ -204,7 +214,7 @@ pub async fn buy(
         Some(take_infos) => {
             let last_take_info = take_infos.last().unwrap();
             //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-            let (can_buy, buy_reason)= if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 60].open_time
+            let (can_buy, buy_reason)= if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time
                 > last_take_info.take_time
                 && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
             {
@@ -237,12 +247,16 @@ pub async fn buy(
                 let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
                     .open_price
                     .to_f32();
+                let mut detail_profits = Vec::new();
                 for take_info in take_infos{
                     let price_raise_ratio = current_price / take_info.price;
-                    batch_profit += 1.0 - price_raise_ratio;
+                    let iterm_profit = 1.0 - price_raise_ratio - 0.0008;
+                    batch_profit += iterm_profit;
+                    detail_profits.push((iterm_profit,timestamp2date(take_info.take_time)));
                 }
+                info!("data0001: now {} market {},total_profit {},detail {:?}",timestamp2date(now),taker_type.pair,batch_profit,detail_profits);
                 take_order_pair.remove(&taker_type);
-                warn!("now {} , {}", timestamp2date(now), push_text);
+                //warn!("now {} , {}", timestamp2date(now), push_text);
                 return Ok((true, batch_profit));
             } else {
                 return Ok((true, 0.0));

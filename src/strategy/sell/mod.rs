@@ -23,7 +23,8 @@ pub enum SellReason {
     TwoMiddleSignal,
     ThreeContinuousSignal,
     RaiseIsStop,
-    SequentialTakeOrder
+    SequentialTakeOrder,
+    Buy1
 }
 
 /*impl SellReason {
@@ -46,6 +47,7 @@ impl From<&str> for SellReason {
             "ThreeContinuousSignal" =>  SellReason::ThreeContinuousSignal,
             "RaiseIsStop" => SellReason::RaiseIsStop,
             "SequentialTakeOrder" => SellReason::SequentialTakeOrder,
+            "Buy1" => SellReason::Buy1,
             _  => unreachable!()
         }
     }
@@ -60,6 +62,7 @@ impl From<SellReason> for &str {
             SellReason::ThreeContinuousSignal => "ThreeContinuousSignal",
             SellReason::RaiseIsStop => "RaiseIsStop",
             SellReason::SequentialTakeOrder => "SequentialTakeOrder",
+            SellReason::Buy1 => "Buy1",
         }
     }
 }
