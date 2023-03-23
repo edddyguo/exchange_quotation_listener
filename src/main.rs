@@ -230,6 +230,7 @@ pub async fn excute_real_trading() {
 }
 
 pub async fn execute_back_testing(
+    year:u32,
     history_data: HashMap<Symbol, Vec<Kline>>,
     month: u8,
 ) -> Vec<(SellReason, f32, u32)> {
@@ -239,7 +240,7 @@ pub async fn execute_back_testing(
     let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> =
         vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
-    let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
+    let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
     for (pair, klines) in history_data {
         warn!(
             "start test {},klines size {}",
@@ -294,7 +295,7 @@ pub async fn execute_back_testing(
     return all_reason_total_profit;
 }
 
-pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
+pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
@@ -308,10 +309,10 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
         ];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
-    let eth_klines = load_history_data_by_pair("ETHUSDT", month).await;
+    let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
     for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
-        let klines = load_history_data_by_pair(&pair.symbol, month).await;
+        let klines = load_history_data_by_pair(year,&pair.symbol, month).await;
         if klines.is_empty() {
             continue;
         }
@@ -365,7 +366,7 @@ pub async fn execute_back_testing2(month: u8) -> Vec<StrategyEffect> {
 }
 
 //开多仓逻辑,1天后平仓
-pub async fn execute_back_testing4(month: u8) -> Vec<StrategyEffect> {
+pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
     let mut take_order_pair: HashMap<String, (u64, f32)> = HashMap::new();
     ///reason,total_profit,txs
     let mut all_reason_total_profit: Vec<StrategyEffect> = vec![StrategyEffect::new(SellReason::Buy1)];
@@ -373,7 +374,7 @@ pub async fn execute_back_testing4(month: u8) -> Vec<StrategyEffect> {
     let mut profit_info = (0u32,0u32,0u32,0.0f32);
     for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
-        let klines = load_history_data_by_pair(&pair.symbol, month).await;
+        let klines = load_history_data_by_pair(year,&pair.symbol, month).await;
         if klines.is_empty() {
             continue;
         }
@@ -389,7 +390,7 @@ pub async fn execute_back_testing4(month: u8) -> Vec<StrategyEffect> {
             let mut remote_klines = line_datas[0..=340].to_owned();
             let mut recent_klines = line_datas[342..].to_owned();
             let (remote_average_price, remote_average_volume) = get_average_info(&remote_klines[..]);
-            let (recent_average_price, _recent_average_volume) = get_average_info(&recent_klines[..]);
+            let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
             match take_order_pair.clone().get_mut(&pair.symbol) {
                 None => {
                     let huge_bar = line_datas[341].clone();
@@ -404,7 +405,7 @@ pub async fn execute_back_testing4(month: u8) -> Vec<StrategyEffect> {
                 }
                 Some(info) => {
                     //6小时强制平多单
-                    if last_bar.open_time - info.to_owned().0 >  1 * 60 * 60 * 1000
+                    if last_bar.open_time - info.to_owned().0 >  20 * 60 * 1000
                         && last_bar.close_price.to_f32() < bar_1h_ago.close_price.to_f32()
                     {
                         //start sell
@@ -425,8 +426,8 @@ pub async fn execute_back_testing4(month: u8) -> Vec<StrategyEffect> {
         }
 
     }
-    info!("tmp0003:month {} txs {},win_txs {},lose_txs {},total_ratio {}",
-        month,profit_info.0,profit_info.1,profit_info.2,profit_info.3);
+    info!("tmp0003:year {} month {} txs {},win_txs {},lose_txs {},total_ratio {}",
+        year,month,profit_info.0,profit_info.1,profit_info.2,profit_info.3);
     return all_reason_total_profit;
 }
 
@@ -453,62 +454,72 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing", _sub_matches)) => {
             println!("back_testing");
-            for month in 1..=12 {
-                let history_data = load_history_data(month).await;
-                let datas = execute_back_testing(history_data, month).await;
-                for (reason, total_profit, txs) in datas {
-                    let reason_str: &str = reason.into();
-                    warn!(
+            for year in 2020u32..2023u32 {
+                for month in 1..=12 {
+                    let history_data = load_history_data(year,month).await;
+                    let datas = execute_back_testing(year,history_data, month).await;
+                    for (reason, total_profit, txs) in datas {
+                        let reason_str: &str = reason.into();
+                        warn!(
                         "month {},reason {}, total_profit {},total txs {}",
                         month,
                         reason_str,
                         total_profit,
                         txs
                     );
+                    }
                 }
             }
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for month in 1..=12 {
-                let datas = execute_back_testing2(month).await;
-                for data in datas {
-                    warn!("finally: month {},detail {:?}",month,data);
+            for year in 2020u32..2023u32 {
+                for month in 1..=12 {
+                    let datas = execute_back_testing2(year,month).await;
+                    for data in datas {
+                        warn!("finally: month {},detail {:?}",month,data);
+                    }
                 }
             }
         }
         Some(("back_testing3", _sub_matches)) => {
             println!("back_testing3");
-            rayon::scope(|scope| {
-                for month in 1..=12 {
-                    scope.spawn(move |_| {
-                        let rt = Runtime::new().unwrap();
-                        rt.block_on(async move {
-                            let datas = execute_back_testing2(month).await;
-                            for data in datas {
-                                warn!("finally: month {},detail {:?}",month,data);
-                            }
+            for year in 2020u32..2023u32 {
+                rayon::scope(|scope| {
+                    for month in 1..=12 {
+                        scope.spawn(move |_| {
+                            let rt = Runtime::new().unwrap();
+                            rt.block_on(async move {
+                                let datas = execute_back_testing2(year,month).await;
+                                for data in datas {
+                                    warn!("finally: month {},detail {:?}",month,data);
+                                }
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                });
+            }
         }
         Some(("back_testing4", _sub_matches)) => {
             println!("back_testing4");
-            rayon::scope(|scope| {
-                for month in 1..=12 {
-                    scope.spawn(move |_| {
-                        let rt = Runtime::new().unwrap();
-                        rt.block_on(async move {
-                            execute_back_testing4(month).await;
+            for year in 2020..2023 {
+                rayon::scope(|scope| {
+                    for month in 1..=12 {
+                        scope.spawn(move |_| {
+                            let rt = Runtime::new().unwrap();
+                            rt.block_on(async move {
+                                execute_back_testing4(year,month).await;
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                });
+            }
         }
         Some(("download_history_kline", _sub_matches)) => {
             println!("download_history_kline");
-            download_history_data().await
+            for year in 2020u32..2023u32 {
+                download_history_data(year).await
+            }
         }
         _ => {}
     }

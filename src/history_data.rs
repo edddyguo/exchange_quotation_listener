@@ -28,16 +28,17 @@ async fn try_get(kline_url: String) -> Response {
     response
 }
 
-pub async fn download_history_data() {
-    let dir = format!("./history_kline",);
+
+pub async fn download_history_data(year:u32) {
+    let dir = format!("./history_kline", );
     let all_pairs = list_all_pair().await;
     let url = "https://data.binance.vision/data/spot/monthly/klines".to_string();
     all_pairs.par_iter().for_each(|pair| {
         for month in 1..=12 {
-            let file_name = format!("{}/{}-1m-2022-{:0>2}.zip", dir, pair.symbol, month);
+            let file_name = format!("{}/{}-1m-{}-{:0>2}.zip", dir, pair.symbol, year,month);
             let url = format!(
-                "{}/{}/1m/{}-1m-2022-{:0>2}.zip",
-                url, pair.symbol, pair.symbol, month
+                "{}/{}/1m/{}-1m-{}-{:0>2}.zip",
+                url, pair.symbol, pair.symbol, year, month
             );
             let rt = Runtime::new().unwrap();
             rt.block_on(async move {
@@ -54,7 +55,7 @@ pub async fn download_history_data() {
 }
 
 //by month time to back testing
-pub async fn load_history_data(month: u8) -> HashMap<Symbol, Vec<Kline>> {
+pub async fn load_history_data(year:u32, month: u8) -> HashMap<Symbol, Vec<Kline>> {
     let dir = "./history_kline";
     let all_pairs = list_all_pair().await;
     let mut datas: HashMap<Symbol, Vec<Kline>> = HashMap::new();
@@ -65,7 +66,7 @@ pub async fn load_history_data(month: u8) -> HashMap<Symbol, Vec<Kline>> {
         .filter(|x| x.symbol != "HNTUSDT")
         .for_each(|x| {
             let arc_datas = arc_datas.clone();
-            let file_name = format!("{}/{}-1m-2022-{:0>2}.csv", dir, x.symbol, month);
+            let file_name = format!("{}/{}-1m-{}-{:0>2}.csv", dir, x.symbol, year, month);
             let mut rdr_res = csv::ReaderBuilder::new()
                 .has_headers(false)
                 .from_path(file_name);
@@ -89,9 +90,9 @@ pub async fn load_history_data(month: u8) -> HashMap<Symbol, Vec<Kline>> {
     data
 }
 
-pub async fn load_history_data_by_pair(pair_symbol: &str, month: u8) -> Vec<Kline> {
+pub async fn load_history_data_by_pair(year:u32, pair_symbol: &str, month: u8) -> Vec<Kline> {
     let dir = "./history_kline";
-    let file_name = format!("{}/{}-1m-2022-{:0>2}.csv", dir, pair_symbol, month);
+    let file_name = format!("{}/{}-1m-{}-{:0>2}.csv", dir, pair_symbol, year, month);
     let mut symbol_klines = Vec::new();
 
     let mut rdr_res = csv::ReaderBuilder::new()
@@ -108,3 +109,4 @@ pub async fn load_history_data_by_pair(pair_symbol: &str, month: u8) -> Vec<Klin
     }
     symbol_klines
 }
+
