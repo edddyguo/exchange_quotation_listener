@@ -382,33 +382,43 @@ pub async fn execute_back_testing4(month: u8) -> Vec<StrategyEffect> {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
+            let last_bar  = line_datas[358].clone();
+            let current_bar  = line_datas[359].clone();
+            let bar_1h_ago  = line_datas[300].clone();
 
-            let mut recent_klines = line_datas[index..(index + 358)].to_owned();
-            let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
+            let mut remote_klines = line_datas[0..=340].to_owned();
+            let mut recent_klines = line_datas[342..].to_owned();
+            let (remote_average_price, remote_average_volume) = get_average_info(&remote_klines[..]);
+            let (recent_average_price, _recent_average_volume) = get_average_info(&recent_klines[..]);
             match take_order_pair.clone().get_mut(&pair.symbol) {
                 None => {
-                    if bar.volume.to_f32() / recent_average_volume >= 50.0
-                        && bar.close_price.to_f32() / recent_average_price >= 1.02
+                    let huge_bar = line_datas[341].clone();
+                    if huge_bar.volume.to_f32() / remote_average_volume >= 30.0
+                        && huge_bar.volume.to_f32() / recent_average_volume > 3.0
+                        && huge_bar.close_price.to_f32() / remote_average_price >= 1.01
+                        && recent_average_price / huge_bar.close_price.to_f32() >= 1.005
                     {
-                        take_order_pair.insert(pair.symbol.clone(), (bar.open_time, bar.close_price.to_f32()));
+                        take_order_pair.insert(pair.symbol.clone(), (current_bar.open_time, current_bar.open_price.to_f32()));
                         //todo: start buy
                     }
                 }
                 Some(info) => {
                     //6小时强制平多单
-                    if bar.open_time - info.to_owned().0 >  6 * 60 * 1000{
+                    if last_bar.open_time - info.to_owned().0 >  1 * 60 * 60 * 1000
+                        && last_bar.close_price.to_f32() < bar_1h_ago.close_price.to_f32()
+                    {
                         //start sell
                         take_order_pair.remove(&pair.symbol);
                         //txs,win_txs,lose_txs,per_ratio,total_ratio
                         profit_info.0 += 1;
-                        let raise_ratio = bar.open_price.to_f32() - info.to_owned().1;
+                        let raise_ratio = (bar.open_price.to_f32() - info.to_owned().1) / info.to_owned().1;
                         if raise_ratio > 0.0 {
                             profit_info.1 += 1
                         }else {
                             profit_info.2 += 1
                         }
                         profit_info.3 += raise_ratio;
-                        info!("tmp0002:pair {},data {},raise_ratio {}",pair.symbol,bar.open_time,raise_ratio);
+                        info!("tmp0002:pair {},startDate {},endDate {},raise_ratio {}",pair.symbol,timestamp2date(info.to_owned().0),timestamp2date(bar.open_time),raise_ratio);
                     }
                 }
             }
