@@ -413,14 +413,14 @@ pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
                         take_order_pair.remove(&pair.symbol);
                         //txs,win_txs,lose_txs,per_ratio,total_ratio
                         profit_info.0 += 1;
-                        let raise_ratio = (bar.open_price.to_f32() - info.to_owned().1) / info.to_owned().1;
+                        let raise_ratio = (current_bar.open_price.to_f32() - info.to_owned().1) / info.to_owned().1;
                         if raise_ratio > 0.0 {
                             profit_info.1 += 1
                         }else {
                             profit_info.2 += 1
                         }
                         profit_info.3 += raise_ratio;
-                        info!("tmp0002:pair {},startDate {},endDate {},raise_ratio {}",pair.symbol,timestamp2date(info.to_owned().0),timestamp2date(bar.open_time),raise_ratio);
+                        info!("tmp0002:pair {},startDate {},endDate {},raise_ratio {}",pair.symbol,timestamp2date(info.to_owned().0),timestamp2date(current_bar.open_time),raise_ratio);
                     }
                 }
             }
