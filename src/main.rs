@@ -385,7 +385,7 @@ pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
             index += 1;
             let last_bar  = line_datas[358].clone();
             let current_bar  = line_datas[359].clone();
-            let bar_1h_ago  = line_datas[330].clone();
+            let bar_1h_ago  = line_datas[345].clone();
 
             let mut remote_klines = line_datas[0..=340].to_owned();
             let mut recent_klines = line_datas[342..].to_owned();
@@ -393,11 +393,11 @@ pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
             let (recent_average_price, recent_average_volume) = get_average_info(&recent_klines[..]);
             match take_order_pair.clone().get_mut(&pair.symbol) {
                 None => {
-                    let huge_bar = line_datas[359].clone();
+                    let huge_bar = line_datas[345].clone();
                     if huge_bar.volume.to_f32() / remote_average_volume >= 40.0
-                        //&& huge_bar.volume.to_f32() / recent_average_volume > 3.0
+                        && huge_bar.volume.to_f32() / recent_average_volume > 3.0
                         && huge_bar.close_price.to_f32() / remote_average_price >= 1.01
-                        //&& recent_average_price / huge_bar.close_price.to_f32() >= 1.005
+                        && recent_average_price / huge_bar.close_price.to_f32() >= 1.005
                     {
                         take_order_pair.insert(pair.symbol.clone(), (current_bar.open_time, current_bar.open_price.to_f32()));
                         //todo: start buy
