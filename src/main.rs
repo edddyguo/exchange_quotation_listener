@@ -13,8 +13,6 @@ mod history_data;
 mod kline;
 mod order;
 mod strategy;
-mod strategy2;
-mod strategy3;
 mod utils;
 
 use crate::account::get_usdt_balance;
@@ -109,7 +107,8 @@ struct RateLimits {
 pub struct TakeOrderInfo {
     take_time: u64,
     //如果没下单，则以30分钟内尝试检测是否再次拉升
-    price: f32,
+    sell_price: f32,
+    buy_price: Option<f32>,
     amount: f32,
     top_bar: Kline,
     is_took: bool, //是否已经下单
@@ -327,7 +326,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                     pair: pair.symbol.clone(),
                     sell_reason: SellReason::from(effect.sell_reason.as_str()),
                 };
-                // fixme：_is_took 是否已经不需要了？
+                // fixme：间隔2小时之后的buy为最后一次，此时再统计盈利
                 let (_is_took, profit) =
                     strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
                         .await

@@ -73,7 +73,8 @@ impl AVSS {
             }
             let order_info = TakeOrderInfo {
                 take_time: now,
-                price,
+                sell_price: price,
+                buy_price: None,
                 amount: taker_amount,
                 top_bar: broken_line_datas[18].clone(),
                 is_took: true,

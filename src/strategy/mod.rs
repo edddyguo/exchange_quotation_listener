@@ -14,6 +14,7 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::ops::{Div, Mul, Sub};
+use rust_decimal::prelude::ToPrimitive;
 use crate::strategy::sell::a_very_strong_signal::AVSS;
 use crate::strategy::sell::sequential_take_order::STO;
 use crate::strategy::sell::three_continuous_signal::TCS;
@@ -201,8 +202,8 @@ pub async fn buy(
 }
 ***/
 
-
-pub async fn buy(
+//连续的下单尝试拉低下单成本
+/*pub async fn buy(
     take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
     taker_type: TakeType,
     line_datas: &[Kline],
@@ -256,6 +257,97 @@ pub async fn buy(
                 }
                 info!("data0001: now {} market {},total_profit {},detail {:?}",timestamp2date(now),taker_type.pair,batch_profit,detail_profits);
                 take_order_pair.remove(&taker_type);
+                //warn!("now {} , {}", timestamp2date(now), push_text);
+                return Ok((true, batch_profit));
+            } else {
+                return Ok((true, 0.0));
+            }
+        }
+    }
+    Ok((false, 0.0))
+}*/
+
+//连续下单的第二个版本
+//10分钟内有发现第二根就不平仓,如果10根中，5根上涨就平仓,10分钟内，有五根大于顶点的,
+// 10分钟外，就直接现有的30根10个向上的逻辑,以最后一次sell为准,观察周期为2小时
+pub async fn buy(
+    take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
+    taker_type: TakeType,
+    line_datas: &[Kline],
+    is_real_trading: bool,
+) -> Result<(bool, f32), Box<dyn std::error::Error>> {
+    let now = line_datas[359].open_time + 1000;
+    match take_order_pair.get_mut(&taker_type) {
+        None => {}
+        Some(take_infos) => {
+            let last_take_info = take_infos.last().unwrap();
+            //The last one must be order which haven't buy
+            if last_take_info.buy_price.is_some() {
+                //todo:这里是下sell单之后3小时之内的插眼结束，实际要的是buy之后的3小时结束，有差别但是不大
+                if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 180].open_time > last_take_info.take_time
+                {
+                    take_order_pair.remove(&taker_type);
+                }
+                return Ok((false, 0.0));
+            }
+
+            //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
+            let (can_buy, buy_reason) = if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30].open_time
+                > last_take_info.take_time
+                && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 15
+            {
+                (
+                    true,
+                    "Positive income and held it for two hour，and price start increase",
+                )
+                //最近30根中有五根大于最后一次顶点的
+            } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30].open_time
+                <= last_take_info.take_time
+                && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]
+                .iter()
+                .filter(|&k| k.open_time > last_take_info.take_time && k.close_price.to_f32() > last_take_info.sell_price)
+                .collect::<Vec<&Kline>>().len() >= 5
+            {
+                (
+                    true,
+                    "buy reason: 最近30根中有五根大于最后一次顶点的",
+                )
+            } else {
+                (false, "")
+            };
+            if can_buy {
+                //和多久之前的比较，比较多少根？
+                let sell_reason_str: &str = taker_type.clone().sell_reason.into();
+                let push_text = format!(
+                    "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {}",
+                    buy_reason, sell_reason_str, taker_type.pair);
+                //fixme: 这里remove会报错
+                //take_order_pair2.remove(pair_symbol);
+                if is_real_trading {
+                    take_order(
+                        taker_type.pair.clone(),
+                        last_take_info.amount * take_infos.len() as f32,
+                        "BUY".to_string(),
+                    )
+                        .await;
+                    notify_lark(push_text.clone()).await?;
+                }
+                //计算总的收入
+                let mut batch_profit = 0.0f32;
+                let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
+                    .open_price
+                    .to_f32();
+                let mut detail_profits = Vec::new();
+                for take_info in take_infos.iter_mut() {
+                    if take_info.buy_price.is_none() {
+                        take_info.buy_price = Some(line_datas[359].open_price.to_f32())
+                    }
+                    let price_raise_ratio = current_price / take_info.sell_price;
+                    let iterm_profit = 1.0 - price_raise_ratio - 0.0008;
+                    batch_profit += iterm_profit;
+                    detail_profits.push((iterm_profit, timestamp2date(take_info.take_time)));
+                }
+                info!("data0001: now {} market {},total_profit {},detail {:?}",timestamp2date(now),taker_type.pair,batch_profit,detail_profits);
                 //warn!("now {} , {}", timestamp2date(now), push_text);
                 return Ok((true, batch_profit));
             } else {
