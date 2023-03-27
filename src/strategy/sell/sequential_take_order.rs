@@ -43,10 +43,15 @@ impl STO {
             let mut push_text = "".to_string();
             let take_info = take_order_pair.get_mut(&take_sell_type);
             //二次拉升才下单,并且量大于2倍
-            if take_info.as_ref().is_none() && recent_shape_score >= 6
+            if take_info.as_ref().is_none() && recent_shape_score >= 6 && volume_score >= 4
                 ||
-                take_info.as_ref().is_some() && broken_line_datas[18].volume.to_f32().div(0.9)
+                //插眼期间：包括已经下了别的单或者最后一单已经平仓
+                //且加仓条件为最后一次加仓的价格的不能低1个点，量不能少于九成
+                take_info.as_ref().is_some()
+                    && broken_line_datas[18].volume.to_f32().div(0.9)
                     > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
+                && broken_line_datas[18].close_price.to_f32().div(0.99)
+                    > take_info.as_ref().unwrap().last().unwrap().sell_price
             {
                 if is_real_trading {
                     take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;

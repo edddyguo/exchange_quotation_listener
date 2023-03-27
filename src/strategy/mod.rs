@@ -294,7 +294,7 @@ pub async fn buy(
             //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
             let (can_buy, buy_reason) = if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30].open_time
                 > last_take_info.take_time
-                && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 15
+                && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
             {
                 (
                     true,
@@ -341,6 +341,9 @@ pub async fn buy(
                 for take_info in take_infos.iter_mut() {
                     if take_info.buy_price.is_none() {
                         take_info.buy_price = Some(line_datas[359].open_price.to_f32())
+                    }else {
+                        //之前已经统计过的数据不再统计
+                        continue;
                     }
                     let price_raise_ratio = current_price / take_info.sell_price;
                     let iterm_profit = 1.0 - price_raise_ratio - 0.0008;
