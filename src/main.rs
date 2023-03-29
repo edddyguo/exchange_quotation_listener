@@ -294,7 +294,76 @@ pub async fn execute_back_testing(
     return all_reason_total_profit;
 }
 
+
 pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
+    let balance = 10.0;
+    let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
+    ///reason,total_profit,txs
+    let mut all_reason_total_profit: Vec<StrategyEffect> =
+        vec![
+                       StrategyEffect::new(AStrongSignal),
+                         StrategyEffect::new(TwoMiddleSignal),
+                         StrategyEffect::new(ThreeContinuousSignal),
+                         StrategyEffect::new(AVeryStrongSignal),
+        ];
+    let all_pairs = list_all_pair().await;
+    let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
+    for pair in all_pairs.iter() {
+        warn!("start test {}", pair.symbol.as_str());
+        let klines = load_history_data_by_pair(year,&pair.symbol, month).await;
+        if klines.is_empty() {
+            continue;
+        }
+        let mut index = 0;
+        for bar in &klines[359..] {
+            let line_datas = &klines[index..(index + 360)];
+            index += 1;
+
+            assert_eq!(bar.open_time, line_datas[359].open_time);
+            for effect in all_reason_total_profit.iter_mut() {
+                let take_type = TakeType {
+                    pair: pair.symbol.clone(),
+                    sell_reason: SellReason::from(effect.sell_reason.as_str()),
+                };
+                // fixme：间隔2小时之后的buy为最后一次，此时再统计盈利
+                let (_is_took, profit) =
+                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
+                        .await
+                        .unwrap();
+                effect.total_profit += profit;
+                //只有下了卖单和买单的才统计收益
+                if profit != 0.0 {
+                    //effect.total_profit -= 0.0008;
+                    effect.txs += 1;
+                    if profit > 0.0 {
+                        effect.win_txs += 1;
+                    } else {
+                        effect.lose_txs += 1;
+                    }
+                    info!("tmp:month {} ,detail {:?}",month,effect);
+                }
+                //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
+                //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
+                /* if is_took {
+                    continue;
+                }*/
+            }
+
+
+           /* if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03
+                || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.05)
+            {
+                continue;
+            }*/
+
+
+            let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
+        }
+    }
+    return all_reason_total_profit;
+}
+
+pub async fn execute_back_testing3(year:u32,month: u8) -> Vec<StrategyEffect> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
@@ -473,18 +542,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2020u32..2023u32 {
-                for month in 1..=12 {
-                    let datas = execute_back_testing2(year,month).await;
-                    for data in datas {
-                        warn!("finally: month {},detail {:?}",month,data);
-                    }
-                }
-            }
-        }
-        Some(("back_testing3", _sub_matches)) => {
-            println!("back_testing3");
-            for year in 2020u32..2023u32 {
+            for year in 2022u32..2023u32 {
                 rayon::scope(|scope| {
                     for month in 1..=12 {
                         scope.spawn(move |_| {
@@ -500,6 +558,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 });
             }
         }
+        //开多仓的尝试：失败
+        Some(("back_testing3", _sub_matches)) => {
+            println!("back_testing3");
+            for year in 2020u32..2023u32 {
+                rayon::scope(|scope| {
+                    for month in 1..=12 {
+                        scope.spawn(move |_| {
+                            let rt = Runtime::new().unwrap();
+                            rt.block_on(async move {
+                                let datas = execute_back_testing3(year,month).await;
+                                for data in datas {
+                                    warn!("finally: month {},detail {:?}",month,data);
+                                }
+                            });
+                        });
+                    }
+                });
+            }
+        }
+        //连续开空单的尝试：希望统一开空逻辑：暂时失败
         Some(("back_testing4", _sub_matches)) => {
             println!("back_testing4");
             for year in 2020..2023 {

@@ -128,7 +128,6 @@ pub async fn sell(
 
 //(Pair,SellReason)
 //不处理返回值对：多次确认的逻辑没有影响，对单次确认的来说，有可能造成短期多次下单，单这个也是没毛病的
-/***
 pub async fn buy(
     take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
     taker_type: TakeType,
@@ -144,7 +143,7 @@ pub async fn buy(
                 let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
                     .open_price
                     .to_f32()
-                    / take_info.price;
+                    / take_info.sell_price;
 
                 let interval_from_take =
                     line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
@@ -192,7 +191,7 @@ pub async fn buy(
                 }
             } else {
                 //加入观察列表五分钟内不在观察，2小时内仍没有二次拉起的则将其移除观察列表
-                if now.sub(take_info.take_time) > 4 * 60 * 60 * 1000 {
+                if now.sub(take_info.take_time) > 2 * 60 * 60 * 1000 {
                     take_order_pair.remove(&taker_type);
                 }
             }
@@ -200,7 +199,6 @@ pub async fn buy(
     }
     Ok((false, 0.0))
 }
-***/
 
 //连续的下单尝试拉低下单成本
 /*pub async fn buy(
@@ -270,7 +268,7 @@ pub async fn buy(
 //连续下单的第二个版本
 //10分钟内有发现第二根就不平仓,如果10根中，5根上涨就平仓,10分钟内，有五根大于顶点的,
 // 10分钟外，就直接现有的30根10个向上的逻辑,以最后一次sell为准,观察周期为2小时
-pub async fn buy(
+/*pub async fn buy(
     take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
     taker_type: TakeType,
     line_datas: &[Kline],
@@ -359,4 +357,4 @@ pub async fn buy(
         }
     }
     Ok((false, 0.0))
-}
+}*/
