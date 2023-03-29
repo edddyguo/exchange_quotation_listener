@@ -1,5 +1,5 @@
 use crate::utils::MathOperation2;
-use crate::{get_average_info, Kline};
+use crate::{get_average_info, Kline, timestamp2date};
 use log::{debug, error, info, log_enabled, Level};
 use std::ops::{Div, Mul};
 
@@ -41,7 +41,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     let last_bar_len = last_bar.high_price.to_f32() - last_bar.low_price.to_f32();
     let pre_last_bar = bars.as_slice().get(17).unwrap().to_owned();
     let pre_last_bar_len = pre_last_bar.high_price.to_f32() - pre_last_bar.low_price.to_f32();
-
+    // 2022-11-14 07:17:00 000000000,score_detail score_detail: ,B:+1,A:+1,F:+0
     let mut score = 0;
     let mut score_detail = "score_detail: ".to_string();
     //收尾比之前低
@@ -50,7 +50,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
         score_detail = format!("{},B:+1", score_detail);
     }
     //当前有触顶部
-    if last_bar.high_price.to_f32() > pre_last_bar.high_price.to_f32() {
+    if last_bar.high_price.to_f32() > pre_last_bar.close_price.to_f32() {
         score += 1;
         score_detail = format!("{},C:+1", score_detail);
     }
@@ -63,7 +63,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     }*/
 
     //最后一根的长度大于前一根
-    if last_bar_len / pre_last_bar_len > 1.0 {
+    if last_bar_len / pre_last_bar_len > 0.8 {
         score += 1;
         score_detail = format!("{},E:+1", score_detail);
     }
@@ -88,19 +88,21 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
 
     if diaowei_down_distance == 0.0 || diaowei_up_distance / diaowei_down_distance > 3.0 {
         score += 3;
-        score_detail = format!("{},F:+2", score_detail);
+        score_detail = format!("{},F:+3", score_detail);
         //如果open等于high，而且close不等于low，则可能是有抄底资金进入,谨慎打分
-    } else if diaowei_up_distance / diaowei_down_distance > 2.0 {
+    } else if diaowei_up_distance / diaowei_down_distance > 1.8 {
+        score += 2;
+        score_detail = format!("{},F:+2", score_detail);
+    } else if diaowei_up_distance / diaowei_down_distance >= 1.2 {
         score += 1;
         score_detail = format!("{},F:+1", score_detail);
-    } else if diaowei_up_distance / diaowei_down_distance <= 1.0 {
-        score += 0;
-        score_detail = format!("{},F:+0", score_detail);
     } else {
         score = 0;
         score_detail = format!("{},F:=0", score_detail);
     }
-    info!("score_detail {}", score_detail);
+    let now = timestamp2date(last_bar.open_time);
+    //将detail-上抛
+    info!("date {},score_detail {}", now,score_detail);
     score
 }
 
