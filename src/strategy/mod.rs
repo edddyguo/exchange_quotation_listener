@@ -94,7 +94,7 @@ pub async fn sell(
         debug!("Have no obvious break signal");
         return Ok(false);
     }
-    if take_info.is_some() {
+   /* if take_info.is_some() {
         for (index, bar) in line_datas[180..358].iter().enumerate() {
             if index <= 340 && bar.is_raise() && bar.volume.to_f32().div(3.0) > line_datas[358].volume.to_f32() {
                 return Ok(false);
@@ -102,7 +102,7 @@ pub async fn sell(
                 return Ok(false);
             }
         }
-    }
+    }*/
 
     //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
     let price = line_datas[359].open_price.parse::<f32>().unwrap();
@@ -117,11 +117,11 @@ pub async fn sell(
         Some(data) => { data.last().unwrap().amount }
     };
     //todo: 将其中通用的计算逻辑拿出来
-    //ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    //TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    //TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    //AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    STO::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    //STO::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
 
     Ok(true)
 }
@@ -148,8 +148,10 @@ pub async fn buy(
                 let interval_from_take =
                     line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
                 //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-                let (can_buy, buy_reason) = if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
+                let (can_buy, buy_reason) = if
+                    //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
+                    //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
+                    line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
                 {
                     (true, "too few volume in last 3 bars")
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
@@ -163,7 +165,7 @@ pub async fn buy(
                         true,
                         "Positive income and held it for two hour，and price start increase",
                     )
-                } else {
+                }else {
                     (false, "")
                 };
                 if can_buy {
@@ -183,8 +185,8 @@ pub async fn buy(
                         .await;
                         notify_lark(push_text.clone()).await?;
                     }
+                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                     take_order_pair.remove(&taker_type);
-                    warn!("now {} , {}", timestamp2date(now), push_text);
                     return Ok((true, 1.0 - price_raise_ratio));
                 } else {
                     return Ok((true, 0.0));

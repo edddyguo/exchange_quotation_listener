@@ -340,7 +340,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                     } else {
                         effect.lose_txs += 1;
                     }
-                    info!("tmp:month {} ,detail {:?}",month,effect);
+                    info!("tmp:year {} month {} ,detail {:?}",year,month,effect);
                 }
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
@@ -542,7 +542,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2022u32..2023u32 {
+            for year in 2022u32..=2023u32 {
                 rayon::scope(|scope| {
                     for month in 1..=12 {
                         scope.spawn(move |_| {
@@ -550,7 +550,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             rt.block_on(async move {
                                 let datas = execute_back_testing2(year,month).await;
                                 for data in datas {
-                                    warn!("finally: month {},detail {:?}",month,data);
+                                    warn!("finally: year {} month {},detail {:?}",year,month,data);
                                 }
                             });
                         });
