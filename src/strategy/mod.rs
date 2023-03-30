@@ -110,7 +110,7 @@ pub async fn sell(
         None => {
             balance
                 .mul(20.0)
-                .div(20.0)
+                .div(100.0)
                 .div(price)
                 .to_fix(pair.quantity_precision as u32)
         }
@@ -151,7 +151,8 @@ pub async fn buy(
                 let (can_buy, buy_reason) = if
                     //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
                     //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
-                    line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
+                    //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
+                    false
                 {
                     (true, "too few volume in last 3 bars")
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
