@@ -83,7 +83,9 @@ impl TCS {
                 };
                 if take_info.as_ref().is_none() {
                     take_order_pair2.insert(take_sell_type, vec![order_info]);
-                }else {
+                }else if take_info.as_ref().is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == true {
+                    return Ok(false)
+                } else {
                     take_info.unwrap().push(order_info)
                 }
                 push_text = format!("add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
