@@ -144,7 +144,11 @@ pub async fn buy(
                     .open_price
                     .to_f32()
                     / take_info.sell_price;
-                let recent_average_volume = get_average_info(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 10..]);
+                //以标准信号后续3根为止，所以判断的bar的index为 line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 5]
+                let signal_bal = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 5].to_owned();
+                let remote_average= get_average_info(&line_datas[345..355]);
+                let recent_average = get_average_info(&line_datas[356..=358]);
+
                 let interval_from_take =
                     line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
                 //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
@@ -153,11 +157,10 @@ pub async fn buy(
                     //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
                     //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
                 line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 40].open_time > take_info.take_time
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 4].is_strong_raise()
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 4].volume.to_f32() * 4.0 > take_info.top_bar.volume.to_f32()
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 4].volume.to_f32() / 6.0 > recent_average_volume.1
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 3].close_price.to_f32() > line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 4].close_price.to_f32()
-                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price.to_f32() > line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 3].close_price.to_f32()
+                    && signal_bal.is_strong_raise()
+                    && signal_bal.volume.to_f32() * 4.0 > take_info.top_bar.volume.to_f32()
+                    && signal_bal.volume.to_f32() / 6.0 > remote_average.1
+                    && signal_bal.close_price.to_f32() < recent_average.0
                 {
                     (true, "too few volume in last 3 bars")
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
