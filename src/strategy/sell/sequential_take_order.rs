@@ -69,8 +69,8 @@ impl STO {
                 }else {
                     take_info.unwrap().push(order_info);
                 }
-                push_text = format!("strategy2: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                    pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+                push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                    <&str>::from(Self::name()),pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
                 warn!("now {}, {}", timestamp2date(now), push_text);
                 if is_real_trading {
