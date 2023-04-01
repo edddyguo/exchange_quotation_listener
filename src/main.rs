@@ -92,6 +92,18 @@ impl Kline {
             false
         }
     }
+
+    pub fn is_strong_raise(&self) -> bool {
+        let diaowei_up_distance = self.high_price.to_f32() - self.close_price.to_f32();
+        let diaowei_down_distance = self.close_price.to_f32() - self.low_price.to_f32();
+        if self.close_price.to_f32() > self.open_price.to_f32()
+            && diaowei_down_distance / diaowei_up_distance >= 5.0
+        {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -542,7 +554,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2022u32..=2023u32 {
+            for year in 2020u32..=2023u32 {
                 rayon::scope(|scope| {
                     for month in 1..=12 {
                         scope.spawn(move |_| {

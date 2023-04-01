@@ -144,7 +144,7 @@ pub async fn buy(
                     .open_price
                     .to_f32()
                     / take_info.sell_price;
-
+                let recent_average_volume = get_average_info(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 10..]);
                 let interval_from_take =
                     line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
                 //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
@@ -152,7 +152,10 @@ pub async fn buy(
                     //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
                     //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
                     //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
-                    false
+                line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30].open_time > take_info.take_time
+                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].is_strong_raise()
+                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() * 3.0 > take_info.top_bar.volume.to_f32()
+                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() / 8.0 > recent_average_volume.1
                 {
                     (true, "too few volume in last 3 bars")
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
