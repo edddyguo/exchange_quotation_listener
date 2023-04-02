@@ -320,8 +320,20 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
         ];
     let all_pairs = list_all_pair().await;
     let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
-    for pair in all_pairs.iter() {
-        warn!("start test {}", pair.symbol.as_str());
+    for (index,pair) in all_pairs.iter().enumerate() {
+        //for test recent kline
+        /*
+        if pair.symbol != "ZILUSDT" {
+            continue
+        }
+        let kline_url = format!(
+            "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
+            pair.symbol.as_str(),
+            10000
+        );
+        let klines = try_get::<Vec<Kline>>(kline_url).await.to_vec();
+        */
+        warn!("date({}-{}):start test index {} symbol {}", year,month,index,pair.symbol.as_str());
         let klines = load_history_data_by_pair(year,&pair.symbol, month).await;
         if klines.is_empty() {
             continue;
@@ -554,9 +566,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2020u32..=2023u32 {
+            for year in 2023u32..=2023u32 {
                 rayon::scope(|scope| {
-                    for month in 1..=12 {
+                    for month in 1..=2 {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
