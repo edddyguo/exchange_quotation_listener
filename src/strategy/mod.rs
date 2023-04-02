@@ -140,6 +140,7 @@ pub async fn buy(
         Some(take_infos) => {
             let take_info = take_infos.last().unwrap();
             if take_info.is_took == true {
+                let sell_reason = taker_type.clone().sell_reason;
                 let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
                     .open_price
                     .to_f32()
@@ -156,11 +157,13 @@ pub async fn buy(
                     //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
                     //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
                     //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
-                line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 40].open_time > take_info.take_time
+/*                line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 40].open_time > take_info.take_time
                     && signal_bal.is_strong_raise()
                     && signal_bal.volume.to_f32() * 4.0 > take_info.top_bar.volume.to_f32()
                     && signal_bal.volume.to_f32() / 6.0 > remote_average.1
-                    && signal_bal.close_price.to_f32() < recent_average.0
+                    && signal_bal.close_price.to_f32() < recent_average.0*/
+                (sell_reason == SellReason::AVeryStrongSignal || sell_reason == SellReason::AStrongSignal)
+                    && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price.to_f32() >= take_info.top_bar.high_price.to_f32()
                 {
                     (true, "too few volume in last 3 bars")
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
@@ -179,7 +182,7 @@ pub async fn buy(
                 };
                 if can_buy {
                     //和多久之前的比较，比较多少根？
-                    let sell_reason_str:&str = taker_type.clone().sell_reason.into();
+                    let sell_reason_str:&str = sell_reason.into();
                     let push_text = format!(
                         "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
                         buy_reason, sell_reason_str, taker_type.pair, price_raise_ratio);
