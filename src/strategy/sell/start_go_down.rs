@@ -75,7 +75,7 @@ impl SGD {
             }
         } else if take_info.as_ref().is_some()
             && take_info.as_ref().unwrap().len() >= 4
-            && line_datas[358].close_price.to_f32() < line_datas[300].close_price.to_f32()
+            && line_datas[358].close_price.to_f32() < line_datas[240].close_price.to_f32()
         {
             if is_real_trading {
                 take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
