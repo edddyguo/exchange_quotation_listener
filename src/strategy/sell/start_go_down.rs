@@ -12,12 +12,12 @@ use std::error::Error;
 use std::ops::{Div, Mul};
 
 
-pub struct TCS {}
+pub struct SGD {}
 
 // 三连阴对交易量有要求不能低于20分之一
-impl TCS {
+impl SGD {
     fn name() -> SellReason {
-        SellReason::ThreeContinuousSignal
+        SellReason::StartGoDown
     }
 
     pub async fn condition_passed(
@@ -48,51 +48,50 @@ impl TCS {
 
         //总分分别是：7分，5分，10分
         //分为三种情况：强信号直接下单，弱信号加入观测名单，弱信号且已经在观查名单且距离观察名单超过五分钟的就下单，
+        let take_info = take_order_pair2.get_mut(&take_sell_type);
         if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
-            let mut push_text = "".to_string();
-            let take_info = take_order_pair2.get_mut(&take_sell_type);
-            //d多次砸盘，最后一次量保证
-            if take_info.as_ref().is_some()
-                && take_info.as_ref().unwrap().len() >= 4
-                && broken_line_datas[18].volume.to_f32().div(1.0) >
-                take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
-            {
-                if is_real_trading {
-                    take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
-                }
-                let order_info = TakeOrderInfo {
-                    take_time: now,
-                    sell_price: price,
-                    buy_price: None,
-                    amount: taker_amount,
-                    top_bar: broken_line_datas[18].clone(),
-                    is_took: true,
-                };
+            let order_info = TakeOrderInfo {
+                take_time: now,
+                sell_price: price,
+                buy_price: None,
+                amount: taker_amount, //not care
+                top_bar: broken_line_datas[18].clone(),
+                is_took: false,
+            };
+            if take_info.as_ref().is_none() {
                 take_order_pair2.insert(take_sell_type, vec![order_info]);
-                push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                    <&str>::from(Self::name()),pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
-                );
+            } else if take_info.as_ref().is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == true {
+                return Ok(false);
             } else {
-                let order_info = TakeOrderInfo {
-                    take_time: now,
-                    sell_price: price,
-                    buy_price: None,
-                    amount: taker_amount, //not care
-                    top_bar: broken_line_datas[18].clone(),
-                    is_took: false,
-                };
-                if take_info.as_ref().is_none() {
-                    take_order_pair2.insert(take_sell_type, vec![order_info]);
-                }else if take_info.as_ref().is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == true {
-                    return Ok(false)
-                } else {
-                    take_info.unwrap().push(order_info)
-                }
-                push_text = format!("add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                    pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
-                );
+                take_info.unwrap().push(order_info)
             }
+            let push_text = format!("add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                    pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+            );
+
             warn!("now {}, {}", timestamp2date(now), push_text);
+            if is_real_trading {
+                notify_lark(push_text).await?;
+            }
+        } else if take_info.as_ref().is_some()
+            && take_info.as_ref().unwrap().len() >= 4
+            && line_datas[358].close_price.to_f32() < line_datas[300].close_price.to_f32()
+        {
+            if is_real_trading {
+                take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
+            }
+            let order_info = TakeOrderInfo {
+                take_time: now,
+                sell_price: price,
+                buy_price: None,
+                amount: taker_amount,
+                top_bar: broken_line_datas[18].clone(),
+                is_took: true,
+            };
+            take_order_pair2.insert(take_sell_type, vec![order_info]);
+            let push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                    <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+            );
             if is_real_trading {
                 notify_lark(push_text).await?;
             }

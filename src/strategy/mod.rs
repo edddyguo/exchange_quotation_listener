@@ -17,6 +17,7 @@ use std::ops::{Div, Mul, Sub};
 use rust_decimal::prelude::ToPrimitive;
 use crate::strategy::sell::a_very_strong_signal::AVSS;
 use crate::strategy::sell::sequential_take_order::STO;
+use crate::strategy::sell::start_go_down::SGD;
 use crate::strategy::sell::three_continuous_signal::TCS;
 
 pub struct OrderData {
@@ -122,6 +123,7 @@ pub async fn sell(
     TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     //STO::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    SGD::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
 
     Ok(true)
 }

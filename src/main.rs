@@ -47,7 +47,7 @@ use std::intrinsics::atomic_cxchg_release_seqcst;
 use std::ops::{Deref, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
-use crate::SellReason::{AVeryStrongSignal, SequentialTakeOrder};
+use crate::SellReason::{AVeryStrongSignal, SequentialTakeOrder, StartGoDown};
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -320,6 +320,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                          StrategyEffect::new(TwoMiddleSignal),
                          StrategyEffect::new(ThreeContinuousSignal),
                          StrategyEffect::new(AVeryStrongSignal),
+                       StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;
     let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;

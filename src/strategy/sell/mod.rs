@@ -3,6 +3,7 @@ pub mod sequential_take_order;
 pub mod three_continuous_signal;
 pub mod two_middle_signal;
 pub mod a_very_strong_signal;
+pub mod start_go_down;
 
 use crate::ex_info::Symbol;
 use crate::{Kline, Pair, StrategyEffect, TakeOrderInfo};
@@ -24,6 +25,7 @@ pub enum SellReason {
     ThreeContinuousSignal,
     RaiseIsStop,
     SequentialTakeOrder,
+    StartGoDown,
     Buy1
 }
 
@@ -47,6 +49,7 @@ impl From<&str> for SellReason {
             "ThreeContinuousSignal" =>  SellReason::ThreeContinuousSignal,
             "RaiseIsStop" => SellReason::RaiseIsStop,
             "SequentialTakeOrder" => SellReason::SequentialTakeOrder,
+            "StartGoDown" => SellReason::StartGoDown,
             "Buy1" => SellReason::Buy1,
             _  => unreachable!()
         }
@@ -62,6 +65,7 @@ impl From<SellReason> for &str {
             SellReason::ThreeContinuousSignal => "ThreeContinuousSignal",
             SellReason::RaiseIsStop => "RaiseIsStop",
             SellReason::SequentialTakeOrder => "SequentialTakeOrder",
+            SellReason::StartGoDown => "StartGoDown",
             SellReason::Buy1 => "Buy1",
         }
     }
