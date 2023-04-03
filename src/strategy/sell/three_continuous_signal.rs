@@ -48,13 +48,16 @@ impl TCS {
 
         //总分分别是：7分，5分，10分
         //分为三种情况：强信号直接下单，弱信号加入观测名单，弱信号且已经在观查名单且距离观察名单超过五分钟的就下单，
-        if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
+        let take_info = take_order_pair2.get_mut(&take_sell_type);
+        if shape_score >= 4 && volume_score >= 3
+            && (take_info.as_ref().is_none() && recent_shape_score >= 6
+                || take_info.as_ref().is_some() && recent_shape_score >= 3
+        ){
             let mut push_text = "".to_string();
-            let take_info = take_order_pair2.get_mut(&take_sell_type);
             //d多次砸盘，最后一次量保证
             if take_info.as_ref().is_some()
                 && take_info.as_ref().unwrap().len() >= 4
-                && broken_line_datas[18].volume.to_f32().div(1.0) >
+                && broken_line_datas[18].volume.to_f32().div(0.8) >
                 take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
             {
                 if is_real_trading {

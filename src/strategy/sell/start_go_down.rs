@@ -49,7 +49,10 @@ impl SGD {
         //总分分别是：7分，5分，10分
         //分为三种情况：强信号直接下单，弱信号加入观测名单，弱信号且已经在观查名单且距离观察名单超过五分钟的就下单，
         let take_info = take_order_pair2.get_mut(&take_sell_type);
-        if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
+        if shape_score >= 4 && volume_score >= 3
+            && (take_info.as_ref().is_none() && recent_shape_score >= 6
+            || take_info.as_ref().is_some() && recent_shape_score >= 3
+        ){
             let order_info = TakeOrderInfo {
                 take_time: now,
                 sell_price: price,
