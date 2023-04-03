@@ -1,5 +1,7 @@
 #![feature(slice_take)]
 #![feature(async_fn_in_trait)]
+#![feature(core_intrinsics)]
+
 extern crate core;
 #[macro_use]
 extern crate log;
@@ -41,6 +43,7 @@ use log::{debug, error, info, log_enabled, Level};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
+use std::intrinsics::atomic_cxchg_release_seqcst;
 use std::ops::{Deref, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
@@ -357,7 +360,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                 effect.total_profit += profit;
                 //只有下了卖单和买单的才统计收益
                 if profit != 0.0 {
-                    //effect.total_profit -= 0.0008;
+                    effect.total_profit -= 0.0008;
                     effect.txs += 1;
                     if profit > 0.0 {
                         effect.win_txs += 1;
@@ -566,9 +569,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2023u32..=2023u32 {
+            for year in 2021u32..=2023u32 {
+                let months = if year == 2023 {
+                    1..=2
+                }else {
+                    1..=12
+                };
                 rayon::scope(|scope| {
-                    for month in 1..=2 {
+                    for month in months {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
