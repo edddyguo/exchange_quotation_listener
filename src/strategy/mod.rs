@@ -13,7 +13,7 @@ use crate::{
     INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
 };
 use std::collections::HashMap;
-use std::ops::{Div, Mul, Sub};
+use std::ops::{Deref, Div, Mul, Sub};
 use rust_decimal::prelude::ToPrimitive;
 use crate::strategy::sell::a_very_strong_signal::AVSS;
 use crate::strategy::sell::sequential_take_order::STO;
@@ -85,45 +85,57 @@ pub async fn sell(
     is_real_trading: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pair_symbol = pair.symbol.as_str();
-    let take_type = TakeType {
+    let tms_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
-        sell_reason: SellReason::SequentialTakeOrder,
-    };
-    let take_info = take_order_pair.get(&take_type);
+        sell_reason: SellReason::TwoMiddleSignal,
+    }).is_none();
 
-    if take_info.is_none() && !is_break_through_market(pair_symbol, &line_datas).await {
-        debug!("Have no obvious break signal");
-        return Ok(false);
-    }
-   /* if take_info.is_some() {
-        for (index, bar) in line_datas[180..358].iter().enumerate() {
-            if index <= 340 && bar.is_raise() && bar.volume.to_f32().div(3.0) > line_datas[358].volume.to_f32() {
-                return Ok(false);
-            } else if index > 340 && bar.is_raise() && bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32() {
-                return Ok(false);
-            }
-        }
-    }*/
+    let tcs_exist = take_order_pair.get(&TakeType {
+        pair: pair_symbol.to_string(),
+        sell_reason: SellReason::ThreeContinuousSignal,
+    }).is_none();
+
+    let sgd_exist = take_order_pair.get(&TakeType {
+        pair: pair_symbol.to_string(),
+        sell_reason: SellReason::StartGoDown,
+    }).is_none();
+
+
+    let is_break = is_break_through_market(pair_symbol, &line_datas).await;
 
     //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
     let price = line_datas[359].open_price.parse::<f32>().unwrap();
-    let taker_amount = match take_info {
-        None => {
-            balance
-                .mul(20.0)
-                .div(100.0)
-                .div(price)
-                .to_fix(pair.quantity_precision as u32)
-        }
-        Some(data) => { data.last().unwrap().amount }
-    };
+    let taker_amount = balance
+        .mul(20.0)
+        .div(100.0)
+        .div(price)
+        .to_fix(pair.quantity_precision as u32);
+
     //todo: 将其中通用的计算逻辑拿出来
-    ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    if is_break {
+        AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+        ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    }
+
+    if !tms_exist && is_break
+        || tms_exist
+    {
+        TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    }
+
+    if !tcs_exist && is_break
+        || tcs_exist
+    {
+        TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    }
+
+    if !sgd_exist && is_break
+        || sgd_exist
+    {
+        SGD::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    }
+
     //STO::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    SGD::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
 
     Ok(true)
 }
