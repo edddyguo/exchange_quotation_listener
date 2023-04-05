@@ -129,12 +129,13 @@ pub async fn sell(
         TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 
-    if !sgd_exist && is_break
+    /*
+   if !sgd_exist && is_break
         || sgd_exist
     {
         SGD::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
-
+    */
     //STO::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
 
     Ok(true)

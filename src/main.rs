@@ -320,7 +320,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                          StrategyEffect::new(TwoMiddleSignal),
                          StrategyEffect::new(ThreeContinuousSignal),
                          StrategyEffect::new(AVeryStrongSignal),
-                       StrategyEffect::new(StartGoDown),
+                       //StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;
     let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
