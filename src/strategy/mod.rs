@@ -212,7 +212,7 @@ pub async fn buy(
                         .await;
                         notify_lark(push_text.clone()).await?;
                     }
-                    debug!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
+                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                     take_order_pair.remove(&taker_type);
                     return Ok((true, 1.0 - price_raise_ratio));
                 } else {

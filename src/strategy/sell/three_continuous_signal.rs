@@ -49,51 +49,70 @@ impl TCS {
         //总分分别是：7分，5分，10分
         //分为三种情况：强信号直接下单，弱信号加入观测名单，弱信号且已经在观查名单且距离观察名单超过五分钟的就下单，
         let take_info = take_order_pair2.get_mut(&take_sell_type);
-        if take_info.as_ref().is_none() && shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6
-            || take_info.as_ref().is_some() && shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 3
-        {
-            let mut push_text = "".to_string();
-            //d多次砸盘，最后一次量保证
-            if take_info.as_ref().is_some()
-                && take_info.as_ref().unwrap().len() >= 4
-                && broken_line_datas[18].volume.to_f32().div(0.8) >
-                take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
-            {
-                if is_real_trading {
-                    take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
-                }
-                let order_info = TakeOrderInfo {
-                    take_time: now,
-                    sell_price: price,
-                    buy_price: None,
-                    amount: taker_amount,
-                    top_bar: broken_line_datas[18].clone(),
-                    is_took: true,
-                };
-                take_order_pair2.insert(take_sell_type, vec![order_info]);
-                push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                    <&str>::from(Self::name()),pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
-                );
-            } else {
-                let order_info = TakeOrderInfo {
-                    take_time: now,
-                    sell_price: price,
-                    buy_price: None,
-                    amount: taker_amount, //not care
-                    top_bar: broken_line_datas[18].clone(),
-                    is_took: false,
-                };
-                if take_info.as_ref().is_none() {
-                    take_order_pair2.insert(take_sell_type, vec![order_info]);
-                }else if take_info.as_ref().is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == true {
-                    return Ok(false)
-                } else {
-                    take_info.unwrap().push(order_info)
-                }
-                push_text = format!("reason {}: add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                    <&str>::from(Self::name()),pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
-                );
+
+        //累计发现4次砸盘就开始下单
+        if take_info.as_ref().is_some()
+            && take_info.as_ref().unwrap().len() >= 4
+            && broken_line_datas[18].volume.to_f32().div(0.8) >
+            take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32() {
+            if is_real_trading {
+                take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
             }
+            let order_info = TakeOrderInfo {
+                take_time: now,
+                sell_price: price,
+                buy_price: None,
+                amount: taker_amount,
+                top_bar: broken_line_datas[18].clone(),
+                is_took: true,
+            };
+            take_order_pair2.insert(take_sell_type, vec![order_info]);
+            let push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+            );
+            warn!("now {}, {}", timestamp2date(now), push_text);
+            if is_real_trading {
+                notify_lark(push_text).await?;
+            }
+            //发现已经有砸盘但是还不足4次，就持续观察
+        } else if take_info.as_ref().is_some()
+            && take_info.as_ref().unwrap().last().unwrap().is_took == false
+            && shape_score >= 4
+            && broken_line_datas[18].volume.to_f32().div(0.8) > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
+            && recent_shape_score >= 3 {
+            let order_info = TakeOrderInfo {
+                take_time: now,
+                sell_price: price,
+                buy_price: None,
+                amount: taker_amount, //not care
+                top_bar: broken_line_datas[18].clone(),
+                is_took: false,
+            };
+            take_info.unwrap().push(order_info);
+            let push_text = format!("reason {}: add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+            );
+            warn!("now {}, {}", timestamp2date(now), push_text);
+            if is_real_trading {
+                notify_lark(push_text).await?;
+            }
+            //还没有砸盘行为的时候
+        } else if take_info.as_ref().is_none()
+            && shape_score >= 4
+            && volume_score >= 3
+            && recent_shape_score >= 6 {
+            let order_info = TakeOrderInfo {
+                take_time: now,
+                sell_price: price,
+                buy_price: None,
+                amount: taker_amount, //not care
+                top_bar: broken_line_datas[18].clone(),
+                is_took: false,
+            };
+            take_order_pair2.insert(take_sell_type, vec![order_info]);
+            let push_text = format!("reason {}: add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+            );
             warn!("now {}, {}", timestamp2date(now), push_text);
             if is_real_trading {
                 notify_lark(push_text).await?;
