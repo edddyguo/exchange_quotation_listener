@@ -53,7 +53,7 @@ impl SGD {
         //累计超过4次的砸盘信号，并且已经比2小时之前和30分钟之前都低保证在下降通道
          if take_info.as_ref().is_some()
              && take_info.as_ref().unwrap().len() >= 4
-             && line_datas[358].close_price.to_f32() < line_datas[240].close_price.to_f32()
+             && line_datas[358].close_price.to_f32() < line_datas[300].close_price.to_f32()
              && line_datas[358].close_price.to_f32() < line_datas[330].close_price.to_f32()
          {
             if is_real_trading {

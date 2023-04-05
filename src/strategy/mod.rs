@@ -178,7 +178,7 @@ pub async fn buy(
                     && signal_bal.close_price.to_f32() < recent_average.0*/
                 //(sell_reason == SellReason::AVeryStrongSignal || sell_reason == SellReason::AStrongSignal)
                   //  && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price.to_f32() >= take_info.top_bar.high_price.to_f32()
-                false
+                sell_reason == SellReason::StartGoDown && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 15
                 {
                     (true, "too few volume in last 3 bars")
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
