@@ -101,8 +101,8 @@ impl TMS {
                 };
                 if take_info.is_none() {
                     take_order_pair2.insert(take_sell_type, vec![order_info]);
-                    push_text = format!("add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                        pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+                    push_text = format!("sell reason {},add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                        <&str>::from(Self::name()),pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                     );
                 }else {
                     return Ok(false);
