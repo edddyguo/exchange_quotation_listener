@@ -102,7 +102,7 @@ pub fn get_last_bar_shape_score(bars: Vec<Kline>) -> u8 {
     }
     let now = timestamp2date(last_bar.open_time);
     //将detail-上抛
-    info!("date {},score_detail {}", now,score_detail);
+    debug!("date {},score_detail {}", now,score_detail);
     score
 }
 

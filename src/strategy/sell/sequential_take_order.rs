@@ -78,7 +78,7 @@ impl STO {
                 }
             }
         } else {
-            info!("Have no take order signal,\
+            debug!("Have no take order signal,\
                      below is detail score:market {},shape_score {},volume_score {},recent_shape_score {}",
                               pair_symbol,shape_score,volume_score,recent_shape_score
                      );

@@ -50,7 +50,7 @@ impl AVSS {
         {
             let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
             if inc_ratio_distance < 1.4 {
-                warn!(
+                debug!(
                     "strategy3-{}-{}-deny: inc_ratio_distance {}",
                     pair_symbol,
                     timestamp2date(now),
@@ -58,7 +58,7 @@ impl AVSS {
                 );
                 return Ok(false);
             } else {
-                warn!(
+                debug!(
                     "strategy3-{}-{}-allow: inc_ratio_distance {}",
                     pair_symbol,
                     timestamp2date(now),
@@ -92,7 +92,7 @@ impl AVSS {
                 notify_lark(push_text).await?;
             }
         } else {
-            info!("Have no take order signal,\
+            debug!("Have no take order signal,\
                      below is detail score:market {},shape_score {},volume_score {},recent_shape_score {}",
                               pair_symbol,shape_score,volume_score,recent_shape_score
                      );

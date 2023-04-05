@@ -88,17 +88,17 @@ pub async fn sell(
     let tms_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::TwoMiddleSignal,
-    }).is_none();
+    }).is_some();
 
     let tcs_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::ThreeContinuousSignal,
-    }).is_none();
+    }).is_some();
 
     let sgd_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::StartGoDown,
-    }).is_none();
+    }).is_some();
 
 
     let is_break = is_break_through_market(pair_symbol, &line_datas).await;
@@ -212,7 +212,7 @@ pub async fn buy(
                         .await;
                         notify_lark(push_text.clone()).await?;
                     }
-                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
+                    debug!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                     take_order_pair.remove(&taker_type);
                     return Ok((true, 1.0 - price_raise_ratio));
                 } else {
