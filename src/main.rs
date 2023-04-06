@@ -16,6 +16,7 @@ mod kline;
 mod order;
 mod strategy;
 mod utils;
+mod draw;
 
 use crate::account::get_usdt_balance;
 use crate::bar::{
