@@ -55,6 +55,24 @@ impl TCS {
             && take_info.as_ref().unwrap().len() >= 4
             && broken_line_datas[18].volume.to_f32().div(0.8) >
             take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32() {
+            let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
+            if inc_ratio_distance < 1.2 {
+                warn!(
+                        "strategy2-{}-{}-deny: inc_ratio_distance {}",
+                        pair_symbol,
+                        timestamp2date(now),
+                        inc_ratio_distance
+                    );
+                return Ok(false);
+            } else {
+                warn!(
+                        "strategy2-{}-{}-allow: inc_ratio_distance {}",
+                        pair_symbol,
+                        timestamp2date(now),
+                        inc_ratio_distance
+                    );
+            }
+
             if is_real_trading {
                 take_order(pair_symbol.to_string(), taker_amount, "SELL".to_string()).await;
             }
