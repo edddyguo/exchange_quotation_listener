@@ -185,15 +185,18 @@ pub async fn buy(
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
                     //{
                     //    (true,"last 10 bars volume too few")
-                } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time
-                    > take_info.take_time
+                } else if (sell_reason == SellReason::AVeryStrongSignal || sell_reason == SellReason::AStrongSignal)
+                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
-                    (
-                        true,
-                        "Positive income and held it for two hour，and price start increase",
-                    )
-                }else {
+                    (true, "Positive income and held it for two hour，and price start increase")
+                }
+                else if (sell_reason == SellReason::TwoMiddleSignal || sell_reason == SellReason::ThreeContinuousSignal)
+                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
+                    && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
+                {
+                    (true, "Positive income and held it for four hour，and price start increase")
+                } else {
                     (false, "")
                 };
                 if can_buy {
@@ -221,7 +224,7 @@ pub async fn buy(
                 }
             } else {
                 //加入观察列表五分钟内不在观察，2小时内仍没有二次拉起的则将其移除观察列表
-                if now.sub(take_info.take_time) > 2 * 60 * 60 * 1000 {
+                if now.sub(take_info.take_time) > 4 * 60 * 60 * 1000 {
                     take_order_pair.remove(&taker_type);
                 }
             }
