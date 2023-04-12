@@ -213,6 +213,7 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 pub async fn excute_real_trading() {
     let all_pairs = list_all_pair().await;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
+    let mut times = 0u64;
     loop {
         let balance = get_usdt_balance().await;
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
@@ -240,6 +241,10 @@ pub async fn excute_real_trading() {
         //严格等待到下一分钟
         let distance_next_minute_time = 60000 - get_unix_timestamp_ms() % 60000;
         std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
+        times += 1;
+        if times % 30 == 0 {
+            notify_lark(format!("System run normally {} times",times);
+        }
         warn!("complete listen all pairs,and start next minute");
     }
 }
