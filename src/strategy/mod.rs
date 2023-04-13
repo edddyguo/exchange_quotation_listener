@@ -214,7 +214,11 @@ pub async fn buy(
                     //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
                     //{
                     //    (true,"last 10 bars volume too few")
-                } else if (sell_reason == SellReason::AVeryStrongSignal || sell_reason == SellReason::AStrongSignal)
+                } else if (sell_reason == SellReason::AVeryStrongSignal
+                    || sell_reason == SellReason::AStrongSignal
+                    || sell_reason == SellReason::AStrongSignal_V2
+                    || sell_reason == SellReason::AVeryStrongSignal_V2
+                )
                     &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
