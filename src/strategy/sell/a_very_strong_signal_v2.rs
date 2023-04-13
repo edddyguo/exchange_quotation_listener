@@ -44,12 +44,12 @@ impl AVSS_V2 {
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
-        if shape_score >= 5
+        if shape_score >= 6
             && volume_score >= 6
             && recent_shape_score >= 6
         {
             let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
-            if inc_ratio_distance < 1.6 {
+            if inc_ratio_distance < 2.0 {
                 debug!(
                     "strategy3-{}-{}-deny: inc_ratio_distance {}",
                     pair_symbol,

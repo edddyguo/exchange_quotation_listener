@@ -44,12 +44,12 @@ impl ASS_V2 {
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
-        if shape_score >= 5
-            && volume_score >= 5
+        if shape_score >= 6
+            && volume_score >= 6
             && recent_shape_score >= 6
             && line_datas[358].open_price.to_f32() > line_datas[358].close_price.to_f32()
             && line_datas[357].close_price.to_f32() > line_datas[358].close_price.to_f32()
-            && line_datas[358].volume.to_f32().mul(4.0) > line_datas[357].volume.to_f32()
+            && line_datas[358].volume.to_f32().mul(3.0) > line_datas[357].volume.to_f32()
         {
             let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
             if inc_ratio_distance < 1.4 {
