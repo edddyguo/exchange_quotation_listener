@@ -225,12 +225,12 @@ pub async fn excute_real_trading() {
             let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
             let mut all_reason_total_profit: Vec<StrategyEffect> =
                 vec![StrategyEffect::new(AStrongSignal),
-                     StrategyEffect::new(AStrongSignal_V2),
+                     //StrategyEffect::new(AStrongSignal_V2),
                      StrategyEffect::new(TwoMiddleSignal),
                      StrategyEffect::new(TwoMiddleSignal_V2),
                      //StrategyEffect::new(ThreeContinuousSignal),
                      StrategyEffect::new(AVeryStrongSignal),
-                     StrategyEffect::new(AVeryStrongSignal_V2),
+                     //StrategyEffect::new(AVeryStrongSignal_V2),
                 ];
             for effect in all_reason_total_profit {
                 let taker_type = TakeType {
@@ -246,7 +246,7 @@ pub async fn excute_real_trading() {
         std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
         times += 1;
         if times % 30 == 0 {
-            notify_lark(format!("System run normally {} times",times));
+            notify_lark(format!("System run normally {} times",times)).await.unwrap();
         }
         warn!("complete listen all pairs,and start next minute");
     }
