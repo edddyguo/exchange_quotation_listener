@@ -133,9 +133,9 @@ pub async fn sell(
     //todo: 将其中通用的计算逻辑拿出来
     if is_break {
         AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-        AVSS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+        //AVSS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
         ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-        ASS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+        //ASS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 
     if !tms_exist && is_break

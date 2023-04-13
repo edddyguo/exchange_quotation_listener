@@ -326,12 +326,12 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
     let mut all_reason_total_profit: Vec<StrategyEffect> =
         vec![
                        StrategyEffect::new(AStrongSignal),
-                       StrategyEffect::new(AStrongSignal_V2),
+                       //StrategyEffect::new(AStrongSignal_V2),
                        StrategyEffect::new(TwoMiddleSignal),
                        StrategyEffect::new(TwoMiddleSignal_V2),
                        // StrategyEffect::new(ThreeContinuousSignal),
                          StrategyEffect::new(AVeryStrongSignal),
-                       StrategyEffect::new(AVeryStrongSignal_V2),
+                       //StrategyEffect::new(AVeryStrongSignal_V2),
                        //StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;

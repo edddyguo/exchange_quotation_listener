@@ -49,7 +49,7 @@ impl TMS_V2 {
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
-        if shape_score >= 5 && volume_score >= 5 && recent_shape_score >= 6 {
+        if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
             let mut push_text = "".to_string();
             let take_info = take_order_pair2.get(&take_sell_type);
             //二次拉升才下单,并且量大于2倍
