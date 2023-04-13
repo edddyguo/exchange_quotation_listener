@@ -15,10 +15,13 @@ use crate::{
 use std::collections::HashMap;
 use std::ops::{Deref, Div, Mul, Sub};
 use rust_decimal::prelude::ToPrimitive;
+use crate::strategy::sell::a_strong_signal_v2::ASS_V2;
 use crate::strategy::sell::a_very_strong_signal::AVSS;
+use crate::strategy::sell::a_very_strong_signal_v2::AVSS_V2;
 use crate::strategy::sell::sequential_take_order::STO;
 use crate::strategy::sell::start_go_down::SGD;
 use crate::strategy::sell::three_continuous_signal::TCS;
+use crate::strategy::sell::two_middle_signal_v2::TMS_V2;
 
 pub struct OrderData {
     pair: String,
@@ -27,6 +30,14 @@ pub struct OrderData {
     buy_time: u64,
     increase_ratio: f32,
 }
+/*macro_rules! signal_exist {
+	($t:expr) => {
+        take_order_pair.get(&TakeType {
+        pair: pair_symbol.to_string(),
+        sell_reason: $t,
+        }).is_some()
+    }
+}*/
 
 //是否突破：分别和远期（1小时）和中期k线（30m）进行对比取低值
 async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
@@ -85,12 +96,19 @@ pub async fn sell(
     is_real_trading: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pair_symbol = pair.symbol.as_str();
+
     let tms_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::TwoMiddleSignal,
     }).is_some();
 
-    let tcs_exist = take_order_pair.get(&TakeType {
+    let tms_v2_exist = take_order_pair.get(&TakeType {
+        pair: pair_symbol.to_string(),
+        sell_reason: SellReason::TwoMiddleSignal_V2,
+    }).is_some();
+
+   /*
+   let tcs_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::ThreeContinuousSignal,
     }).is_some();
@@ -99,6 +117,7 @@ pub async fn sell(
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::StartGoDown,
     }).is_some();
+    */
 
 
     let is_break = is_break_through_market(pair_symbol, &line_datas).await;
@@ -114,7 +133,9 @@ pub async fn sell(
     //todo: 将其中通用的计算逻辑拿出来
     if is_break {
         AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+        AVSS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
         ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+        ASS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 
     if !tms_exist && is_break
@@ -123,11 +144,19 @@ pub async fn sell(
         TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 
+    if !tms_v2_exist && is_break
+        || tms_v2_exist
+    {
+        TMS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    }
+
+  /*
     if !tcs_exist && is_break
         || tcs_exist
     {
         TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
+    */
 
     /*
    if !sgd_exist && is_break
@@ -190,11 +219,14 @@ pub async fn buy(
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
                     (true, "Positive income and held it for two hour，and price start increase")
-                }
-                else if (sell_reason == SellReason::TwoMiddleSignal || sell_reason == SellReason::ThreeContinuousSignal)
+                } else if (sell_reason == SellReason::TwoMiddleSignal || sell_reason == SellReason::ThreeContinuousSignal)
                     &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
+                    (true, "Positive income and held it for two hour，and price start increase")
+                } else if sell_reason == SellReason::TwoMiddleSignal_V2
+                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
+                    && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10{
                     (true, "Positive income and held it for four hour，and price start increase")
                 } else {
                     (false, "")

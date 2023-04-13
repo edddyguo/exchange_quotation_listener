@@ -48,7 +48,7 @@ use std::intrinsics::atomic_cxchg_release_seqcst;
 use std::ops::{Deref, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
-use crate::SellReason::{AVeryStrongSignal, SequentialTakeOrder, StartGoDown};
+use crate::SellReason::{AStrongSignal_V2, AVeryStrongSignal, AVeryStrongSignal_V2, SequentialTakeOrder, StartGoDown, TwoMiddleSignal_V2};
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -225,9 +225,12 @@ pub async fn excute_real_trading() {
             let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
             let mut all_reason_total_profit: Vec<StrategyEffect> =
                 vec![StrategyEffect::new(AStrongSignal),
+                     StrategyEffect::new(AStrongSignal_V2),
                      StrategyEffect::new(TwoMiddleSignal),
-                     StrategyEffect::new(ThreeContinuousSignal),
+                     StrategyEffect::new(TwoMiddleSignal_V2),
+                     //StrategyEffect::new(ThreeContinuousSignal),
                      StrategyEffect::new(AVeryStrongSignal),
+                     StrategyEffect::new(AVeryStrongSignal_V2),
                 ];
             for effect in all_reason_total_profit {
                 let taker_type = TakeType {
@@ -243,7 +246,7 @@ pub async fn excute_real_trading() {
         std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
         times += 1;
         if times % 30 == 0 {
-            notify_lark(format!("System run normally {} times",times);
+            notify_lark(format!("System run normally {} times",times));
         }
         warn!("complete listen all pairs,and start next minute");
     }

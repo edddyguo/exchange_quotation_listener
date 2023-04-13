@@ -10,11 +10,11 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ops::{Div, Mul};
 
-pub struct TMS {}
+pub struct TMS_V2 {}
 
-impl TMS {
+impl TMS_V2 {
     fn name() -> SellReason {
-        SellReason::TwoMiddleSignal
+        SellReason::TwoMiddleSignal_V2
     }
 
     pub async fn condition_passed(
