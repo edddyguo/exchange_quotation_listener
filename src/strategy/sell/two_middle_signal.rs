@@ -99,10 +99,15 @@ impl TMS {
                     top_bar: broken_line_datas[18].clone(),
                     is_took: false,
                 };
-                take_order_pair2.insert(take_sell_type, vec![order_info]);
-                push_text = format!("sell reason {},add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
-                                    <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
-                );
+                if take_info.is_none() {
+                    take_order_pair2.insert(take_sell_type, vec![order_info]);
+                    push_text = format!("sell reason {},add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
+                                        <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
+                    );
+                }else {
+                    return Ok(false)
+                }
+
             }
             warn!("now {}, {}", timestamp2date(now), push_text);
             if is_real_trading {

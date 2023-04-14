@@ -102,10 +102,10 @@ pub async fn sell(
         sell_reason: SellReason::TwoMiddleSignal,
     }).is_some();
 
-    let tms_v2_exist = take_order_pair.get(&TakeType {
+/*    let tms_v2_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::TwoMiddleSignal_V2,
-    }).is_some();
+    }).is_some();*/
 
    /*
    let tcs_exist = take_order_pair.get(&TakeType {
@@ -143,13 +143,13 @@ pub async fn sell(
     {
         TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
-
+/*
     if !tms_v2_exist && is_break
         || tms_v2_exist
     {
         TMS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
-
+*/
   /*
     if !tcs_exist && is_break
         || tcs_exist
@@ -224,7 +224,7 @@ pub async fn buy(
                 {
                     (true, "Positive income and held it for two hour，and price start increase")
                 } else if (sell_reason == SellReason::TwoMiddleSignal || sell_reason == SellReason::ThreeContinuousSignal)
-                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
+                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
                     (true, "Positive income and held it for two hour，and price start increase")

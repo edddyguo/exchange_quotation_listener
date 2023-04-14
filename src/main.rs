@@ -227,7 +227,7 @@ pub async fn excute_real_trading() {
                 vec![StrategyEffect::new(AStrongSignal),
                      //StrategyEffect::new(AStrongSignal_V2),
                      StrategyEffect::new(TwoMiddleSignal),
-                     StrategyEffect::new(TwoMiddleSignal_V2),
+                     //StrategyEffect::new(TwoMiddleSignal_V2),
                      //StrategyEffect::new(ThreeContinuousSignal),
                      StrategyEffect::new(AVeryStrongSignal),
                      //StrategyEffect::new(AVeryStrongSignal_V2),
