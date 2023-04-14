@@ -328,7 +328,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                        StrategyEffect::new(AStrongSignal),
                        //StrategyEffect::new(AStrongSignal_V2),
                        StrategyEffect::new(TwoMiddleSignal),
-                       StrategyEffect::new(TwoMiddleSignal_V2),
+                       //StrategyEffect::new(TwoMiddleSignal_V2),
                        // StrategyEffect::new(ThreeContinuousSignal),
                          StrategyEffect::new(AVeryStrongSignal),
                        //StrategyEffect::new(AVeryStrongSignal_V2),
