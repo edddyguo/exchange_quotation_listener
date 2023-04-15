@@ -100,6 +100,16 @@ pub async fn sell(
     let tms_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::TwoMiddleSignal,
+    }).and_then(|x| Some(x.last().unwrap().is_took));
+
+    let ass_exist = take_order_pair.get(&TakeType {
+        pair: pair_symbol.to_string(),
+        sell_reason: SellReason::AStrongSignal,
+    }).is_some();
+
+    let avss_exist = take_order_pair.get(&TakeType {
+        pair: pair_symbol.to_string(),
+        sell_reason: SellReason::AVeryStrongSignal,
     }).is_some();
 
 /*    let tms_v2_exist = take_order_pair.get(&TakeType {
@@ -108,10 +118,10 @@ pub async fn sell(
     }).is_some();*/
 
 
-   let tcs_exist = take_order_pair.get(&TakeType {
+/*   let tcs_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::ThreeContinuousSignal,
-    }).is_some();
+    }).is_some();*/
 /*
     let sgd_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
@@ -131,15 +141,16 @@ pub async fn sell(
         .to_fix(pair.quantity_precision as u32);
 
     //todo: 将其中通用的计算逻辑拿出来
-    if is_break {
-        AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-        AVSS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    if !ass_exist && is_break {
         ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-        ASS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    }
+    if !avss_exist && is_break{
+        AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 
-    if !tms_exist && is_break
-        || tms_exist
+
+    if tms_exist.is_none() && is_break
+        || tms_exist.is_some() && tms_exist.unwrap() == false
     {
         TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
@@ -150,12 +161,12 @@ pub async fn sell(
         TMS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 */
-
+/*
     if !tcs_exist && is_break
         || tcs_exist
     {
         TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }
+    }*/
 
 
     /*
@@ -219,7 +230,7 @@ pub async fn buy(
                     || sell_reason == SellReason::AStrongSignal_V2
                     || sell_reason == SellReason::AVeryStrongSignal_V2
                 )
-                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 60].open_time > take_info.take_time
+                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
                     (true, "Positive income and held it for two hour，and price start increase")
