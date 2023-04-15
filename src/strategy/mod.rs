@@ -163,7 +163,7 @@ pub async fn sell(
 */
 
     if tcs_exist.is_none() && is_break
-        || tcs_exist.is_some() && tms_exist.unwrap() == false
+        || tcs_exist.is_some() && tcs_exist.unwrap() == false
     {
         TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
