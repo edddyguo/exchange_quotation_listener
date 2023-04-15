@@ -52,14 +52,14 @@ impl TCS {
 
         //累计发现4次砸盘就开始下单
         if take_info.as_ref().is_some()
-            && take_info.as_ref().unwrap().len() >= 4
+            && take_info.as_ref().unwrap().len() >= 2
             && shape_score >= 4
             && broken_line_datas[18].volume.to_f32().div(1.0) >
             take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
             //&& broken_line_datas[18].close_price.to_f32() < line_datas[300].high_price.to_f32()
         {
             let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
-            if inc_ratio_distance < 1.2 {
+            if inc_ratio_distance < 1.4 {
                 warn!(
                         "strategy2-{}-{}-deny: inc_ratio_distance {}",
                         pair_symbol,

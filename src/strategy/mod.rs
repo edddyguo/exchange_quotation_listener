@@ -118,11 +118,11 @@ pub async fn sell(
     }).is_some();*/
 
 
-/*   let tcs_exist = take_order_pair.get(&TakeType {
+   let tcs_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::ThreeContinuousSignal,
-    }).is_some();*/
-/*
+    }).and_then(|x| Some(x.last().unwrap().is_took));;
+    /**
     let sgd_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::StartGoDown,
@@ -161,12 +161,12 @@ pub async fn sell(
         TMS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 */
-/*
-    if !tcs_exist && is_break
-        || tcs_exist
+
+    if tcs_exist.is_none() && is_break
+        || tcs_exist.is_some() && tms_exist.unwrap() == false
     {
         TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }*/
+    }
 
 
     /*
