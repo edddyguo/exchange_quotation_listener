@@ -89,7 +89,8 @@ impl AVSS {
                 pair: pair_symbol.to_string(),
                 sell_reason: Self::name(),
             };
-            take_order_pair.insert(take_type, vec![order_info]);
+            //take_order_pair.insert(take_type, vec![order_info]);
+            take_order_pair.entry(take_type).or_insert(vec![order_info.clone()]).push(order_info);
             push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                 <&str>::from(Self::name()),pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
             );

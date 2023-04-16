@@ -18,7 +18,7 @@ impl TMS {
     }
 
     pub async fn condition_passed(
-        take_order_pair2: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
+        take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
         line_datas: &[Kline],
         pair: &Symbol,
         taker_amount: f32,
@@ -51,11 +51,11 @@ impl TMS {
         );
         if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
             let mut push_text = "".to_string();
-            let take_info = take_order_pair2.get(&take_sell_type);
+            let take_info = take_order_pair.get_mut(&take_sell_type);
             //二次拉升才下单,并且量大于2倍
             if take_info.is_some()
                 && broken_line_datas[18].volume.to_f32().div(1.1)
-                > take_info.unwrap().last().unwrap().top_bar.volume.to_f32()
+                > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
             {
                 let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
                 if inc_ratio_distance < 1.2 {
@@ -86,7 +86,9 @@ impl TMS {
                     top_bar: broken_line_datas[18].clone(),
                     is_took: true,
                 };
-                take_order_pair2.insert(take_sell_type, vec![order_info]);
+                //take_order_pair2.insert(take_sell_type, vec![order_info]);
+                //take_order_pair2.entry(take_sell_type).or_insert(vec![order_info.clone()]).push(order_info);
+                take_info.unwrap().push(order_info);
                 push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                     <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );
@@ -100,7 +102,7 @@ impl TMS {
                     is_took: false,
                 };
                 if take_info.is_none() {
-                    take_order_pair2.insert(take_sell_type, vec![order_info]);
+                    take_order_pair.insert(take_sell_type, vec![order_info]);
                     push_text = format!("sell reason {},add_observe_list: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                         <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                     );

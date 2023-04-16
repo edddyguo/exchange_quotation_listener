@@ -119,7 +119,7 @@ struct RateLimits {
 }
 
 //symbol -> order time,price,amount
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize,Clone)]
 pub struct TakeOrderInfo {
     take_time: u64,
     //如果没下单，则以30分钟内尝试检测是否再次拉升
@@ -582,9 +582,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2021u32..=2023u32 {
+            for year in 2023u32..=2023u32 {
                 let months = if year == 2023 {
-                    1..=2
+                    1..=3
                 }else {
                     1..=12
                 };

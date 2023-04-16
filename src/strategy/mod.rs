@@ -196,10 +196,9 @@ pub async fn buy(
             let take_info = take_infos.last().unwrap();
             if take_info.is_took == true {
                 let sell_reason = taker_type.clone().sell_reason;
-                let price_raise_ratio = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
+                let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
                     .open_price
-                    .to_f32()
-                    / take_info.sell_price;
+                    .to_f32();
                 //以标准信号后续3根为止，所以判断的bar的index为 line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 5]
                 let signal_bal = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 5].to_owned();
                 let remote_average= get_average_info(&line_datas[345..355]);
@@ -247,17 +246,26 @@ pub async fn buy(
                     (false, "")
                 };
                 if can_buy {
+                    let mut total_amount = 0.0f32;
+                    let mut total_raise_price = 0.0f32;
+                    let mut order_num = 0u32;
+                    for take_info in take_infos {
+                        if take_info.is_took == true{
+                            total_amount += take_info.amount;
+                            total_raise_price += (current_price - take_info.sell_price).div(take_info.sell_price);
+                        }
+                    }
                     //和多久之前的比较，比较多少根？
                     let sell_reason_str:&str = sell_reason.into();
                     let push_text = format!(
-                        "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                        buy_reason, sell_reason_str, taker_type.pair, price_raise_ratio);
+                        "strategy:order_num {}, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                        order_num,buy_reason, sell_reason_str, taker_type.pair, total_raise_price);
                     //fixme: 这里remove会报错
                     //take_order_pair2.remove(pair_symbol);
                     if is_real_trading {
                         take_order(
                             taker_type.pair.clone(),
-                            take_info.amount,
+                            total_amount,
                             "BUY".to_string(),
                         )
                         .await;
@@ -265,7 +273,7 @@ pub async fn buy(
                     }
                     info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                     take_order_pair.remove(&taker_type);
-                    return Ok((true, 1.0 - price_raise_ratio));
+                    return Ok((true, -total_raise_price));
                 } else {
                     return Ok((true, 0.0));
                 }

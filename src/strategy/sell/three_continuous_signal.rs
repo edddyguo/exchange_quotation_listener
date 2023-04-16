@@ -87,7 +87,8 @@ impl TCS {
                 top_bar: broken_line_datas[18].clone(),
                 is_took: true,
             };
-            take_order_pair2.insert(take_sell_type, vec![order_info]);
+            //take_order_pair2.insert(take_sell_type, vec![order_info]);
+            take_info.unwrap().push(order_info);
             let push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                 <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
             );
