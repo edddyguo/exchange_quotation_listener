@@ -25,6 +25,12 @@ impl TMS {
         price: f32,
         is_real_trading: bool,
     ) -> Result<bool, Box<dyn Error>> {
+        for kline in line_datas[300..353].iter(){
+            if kline.volume.to_f32() > line_datas[358].volume.to_f32().mul(1.5) {
+                return Ok(false)
+            }
+        }
+
         let pair_symbol = pair.symbol.as_str();
         let now = line_datas[359].open_time + 1000;
         let take_sell_type = TakeType {
@@ -87,8 +93,8 @@ impl TMS {
                     is_took: true,
                 };
                 //take_order_pair2.insert(take_sell_type, vec![order_info]);
-                //take_order_pair2.entry(take_sell_type).or_insert(vec![order_info.clone()]).push(order_info);
-                take_info.unwrap().push(order_info);
+                take_order_pair.entry(take_sell_type).or_insert(vec![]).push(order_info);
+                //take_info.unwrap().push(order_info);
                 push_text = format!("reason {}: take_sell_order: market {},shape_score {},volume_score {},recent_shape_score {},taker_amount {}",
                                     <&str>::from(Self::name()), pair_symbol, shape_score, volume_score, recent_shape_score, taker_amount
                 );

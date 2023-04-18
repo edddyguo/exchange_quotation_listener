@@ -253,6 +253,7 @@ pub async fn buy(
                         if take_info.is_took == true{
                             total_amount += take_info.amount;
                             total_raise_price += (current_price - take_info.sell_price).div(take_info.sell_price);
+                            order_num += 1;
                         }
                     }
                     //和多久之前的比较，比较多少根？
