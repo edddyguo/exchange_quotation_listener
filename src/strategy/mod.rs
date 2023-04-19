@@ -188,10 +188,7 @@ pub async fn buy(
                     (false, "")
                 };
                 if can_buy {
-                    let raise_ratio = (current_price - take_info.sell_price + total_history_raise).div(take_info.sell_price);
-                    let push_text = format!(
-                        "strategy, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                        buy_reason, sell_reason_str, taker_type.pair, raise_ratio);
+
                     if is_real_trading {
                         take_order(
                             taker_type.pair.clone(),
@@ -199,20 +196,31 @@ pub async fn buy(
                             "BUY".to_string(),
                         )
                         .await;
-                        notify_lark(push_text.clone()).await?;
                     }
                     //只在最后remove的时候才进行总盈利统计
                     if buy_reason == hold_four_hour_reason {
+                        let raise_ratio = (current_price - take_info.sell_price + total_history_raise).div(take_info.sell_price);
+                        let push_text = format!(
+                            "strategy, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                            buy_reason, sell_reason_str, taker_type.pair, raise_ratio);
+                        if is_real_trading{
+                            notify_lark(push_text.clone()).await?;
+                        }
                         //历史的平仓统计，本次的单独计算
                         take_info.buy_price = Some(current_price);
+                        info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                         take_order_pair.remove(&taker_type);
                         return Ok((true, -raise_ratio));
                     }else {
+                        let raise_ratio = (current_price - take_info.sell_price).div(take_info.sell_price);
+                        let push_text = format!(
+                            "strategy, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                            buy_reason, sell_reason_str, taker_type.pair, raise_ratio);
                         take_info.buy_price = Some(current_price);
                         take_info.is_took = false;
+                        info!("data0002: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                         return Ok((true, 0.0));
                     }
-                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
 
                 } else {
                     return Ok((true, 0.0));
