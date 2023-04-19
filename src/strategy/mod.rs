@@ -127,9 +127,9 @@ fn get_down_up_price_ratio(top_bar: &Kline,line_datas: &[Kline]) -> (f32,f32){
     let symmetry_up_bar = line_datas[symmetry_up_bar_index].to_owned();
 
     let down_ratio = (last_bar.close_price.to_f32() - top_bar.close_price.to_f32())
-            .div((last_bar.kline_close_time - top_bar.kline_close_time) as f32);
+            .div((last_bar.kline_close_time - top_bar.kline_close_time).div(1000) as f32);
     let up_ratio = (top_bar.close_price.to_f32() - symmetry_up_bar.close_price.to_f32())
-        .div((top_bar.kline_close_time - symmetry_up_bar.kline_close_time) as f32);
+        .div((top_bar.kline_close_time - symmetry_up_bar.kline_close_time).div(1000) as f32);
 
     (up_ratio,-down_ratio)
 }
