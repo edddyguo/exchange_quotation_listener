@@ -25,14 +25,11 @@ impl AVSS {
         price:f32,
         is_real_trading: bool,
     ) -> Result<bool, Box<dyn Error>> {
-
-        for kline in line_datas[300..353].iter(){
-            if kline.volume.to_f32() > line_datas[358].volume.to_f32() {
-                return Ok(false)
-            }
-        }
-
         let pair_symbol = pair.symbol.as_str();
+        let take_sell_type = TakeType {
+            pair: pair_symbol.to_string(),
+            sell_reason: Self::name(),
+        };
         let now = line_datas[359].open_time + 1000;
         let half_hour_inc_ratio =
             (line_datas[358].open_price.to_f32() - line_datas[328].open_price.to_f32()).div(30.0);
@@ -51,12 +48,16 @@ impl AVSS {
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
-        if shape_score >= 4
-            && volume_score >= 5
-            && recent_shape_score >= 6
+        let take_info = take_order_pair.get_mut(&take_sell_type);
+        if take_info.is_none() && shape_score >= 4 && volume_score >= 5 && recent_shape_score >= 6
+            || take_info.is_some()
+                && take_info.as_ref().unwrap().last().unwrap().is_took == false
+                && shape_score >= 4
+                && broken_line_datas[18].volume.to_f32().div(1.0) > take_info.unwrap().last().unwrap().top_bar.volume.to_f32()
+                && recent_shape_score >= 5
         {
             let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
-            if inc_ratio_distance < 1.4 {
+            if inc_ratio_distance < 1.2 {
                 debug!(
                     "strategy3-{}-{}-deny: inc_ratio_distance {}",
                     pair_symbol,

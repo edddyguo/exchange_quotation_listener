@@ -325,11 +325,11 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
     ///reason,total_profit,txs
     let mut all_reason_total_profit: Vec<StrategyEffect> =
         vec![
-                       StrategyEffect::new(AStrongSignal),
+                       //StrategyEffect::new(AStrongSignal),
                        //StrategyEffect::new(AStrongSignal_V2),
-                       StrategyEffect::new(TwoMiddleSignal),
+                       //StrategyEffect::new(TwoMiddleSignal),
                        //StrategyEffect::new(TwoMiddleSignal_V2),
-                       StrategyEffect::new(ThreeContinuousSignal),
+                       //StrategyEffect::new(ThreeContinuousSignal),
                        StrategyEffect::new(AVeryStrongSignal),
                        //StrategyEffect::new(AVeryStrongSignal_V2),
                        //StrategyEffect::new(StartGoDown),
@@ -382,20 +382,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                     }
                     info!("tmp:year {} month {} ,detail {:?}",year,month,effect);
                 }
-                //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
-                //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
-                /* if is_took {
-                    continue;
-                }*/
             }
-
-
-           /* if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03
-                || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.05)
-            {
-                continue;
-            }*/
-
 
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
         }

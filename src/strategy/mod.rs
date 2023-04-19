@@ -1,6 +1,7 @@
 mod buy;
 pub(crate) mod sell;
 
+use std::borrow::Borrow;
 use crate::constant::WEEK;
 use crate::kline::volume_too_few;
 use crate::strategy::sell::a_strong_signal::ASS;
@@ -54,9 +55,9 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         .to_f32();
     //最近2小时，交易量不能有大于准顶量1.5倍的
     for (index, bar) in line_datas[..358].iter().enumerate() {
-        if index <= 340 && bar.volume.to_f32().div(10.0) > line_datas[358].volume.to_f32() {
+        if index <= 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
             return false;
-        } else if index > 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
+        } else if index > 340 && bar.volume.to_f32().div(2.0) > line_datas[358].volume.to_f32() {
             return false;
         }
     }
@@ -96,39 +97,10 @@ pub async fn sell(
     is_real_trading: bool,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pair_symbol = pair.symbol.as_str();
-
-    let tms_exist = take_order_pair.get(&TakeType {
-        pair: pair_symbol.to_string(),
-        sell_reason: SellReason::TwoMiddleSignal,
-    }).and_then(|x| Some(x.last().unwrap().is_took));
-
-    let ass_exist = take_order_pair.get(&TakeType {
-        pair: pair_symbol.to_string(),
-        sell_reason: SellReason::AStrongSignal,
-    }).is_some();
-
     let avss_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::AVeryStrongSignal,
-    }).is_some();
-
-/*    let tms_v2_exist = take_order_pair.get(&TakeType {
-        pair: pair_symbol.to_string(),
-        sell_reason: SellReason::TwoMiddleSignal_V2,
-    }).is_some();*/
-
-
-   let tcs_exist = take_order_pair.get(&TakeType {
-        pair: pair_symbol.to_string(),
-        sell_reason: SellReason::ThreeContinuousSignal,
-    }).and_then(|x| Some(x.last().unwrap().is_took));;
-    /**
-    let sgd_exist = take_order_pair.get(&TakeType {
-        pair: pair_symbol.to_string(),
-        sell_reason: SellReason::StartGoDown,
-    }).is_some();
-    */
-
+    }).and_then(|x| Some(x.last().unwrap().is_took));
 
     let is_break = is_break_through_market(pair_symbol, &line_datas).await;
 
@@ -140,47 +112,27 @@ pub async fn sell(
         .div(price)
         .to_fix(pair.quantity_precision as u32);
 
-    //todo: 将其中通用的计算逻辑拿出来
-    if !ass_exist && is_break {
-        ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }
-    if !avss_exist && is_break{
+    if avss_exist.is_none() && is_break
+        || avss_exist.is_some() && avss_exist.unwrap() == false
+    {
         AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
-
-
-    if tms_exist.is_none() && is_break
-        || tms_exist.is_some() && tms_exist.unwrap() == false
-    {
-        TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }
-/*
-    if !tms_v2_exist && is_break
-        || tms_v2_exist
-    {
-        TMS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }
-*/
-
-    if tcs_exist.is_none() && is_break
-        || tcs_exist.is_some() && tcs_exist.unwrap() == false
-    {
-        TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }
-
-
-    /*
-   if !sgd_exist && is_break
-        || sgd_exist
-    {
-        SGD::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }
-    */
-    //STO::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
 
     Ok(true)
 }
 
+fn get_down_up_price_ratio(top_bar: &Kline,line_datas: &[Kline]) -> (f32,f32){
+    let last_bar = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].to_owned();
+    let symmetry_up_bar_index = KLINE_NUM_FOR_FIND_SIGNAL - 2 * (last_bar.kline_close_time - top_bar.kline_close_time).div(60000) as usize;
+    let symmetry_up_bar = line_datas[symmetry_up_bar_index].to_owned();
+
+    let down_ratio = (last_bar.close_price.to_f32() - top_bar.close_price.to_f32())
+            .div((last_bar.kline_close_time - top_bar.kline_close_time) as f32);
+    let up_ratio = (top_bar.close_price.to_f32() - symmetry_up_bar.close_price.to_f32())
+        .div((top_bar.kline_close_time - symmetry_up_bar.kline_close_time) as f32);
+
+    (up_ratio,-down_ratio)
+}
 //(Pair,SellReason)
 //不处理返回值对：多次确认的逻辑没有影响，对单次确认的来说，有可能造成短期多次下单，单这个也是没毛病的
 pub async fn buy(
@@ -190,97 +142,79 @@ pub async fn buy(
     is_real_trading: bool,
 ) -> Result<(bool, f32), Box<dyn std::error::Error>> {
     let now = line_datas[359].open_time + 1000;
-    match take_order_pair.get(&taker_type) {
+    let hold_four_hour_reason = "Positive income and held it for four hour，and price start increase".to_string();
+    let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
+        .open_price
+        .to_f32();
+    let sell_reason = taker_type.clone().sell_reason;
+    let sell_reason_str:&str = sell_reason.into();
+    match take_order_pair.get_mut(&taker_type) {
         None => {}
         Some(take_infos) => {
-            let take_info = take_infos.last().unwrap();
+            let total_history_raise = take_infos
+                .iter()
+                .map(|x| x.buy_price.unwrap().sub(x.sell_price))
+                .sum::<f32>();
+            let take_info = take_infos.last_mut().unwrap();
             if take_info.is_took == true {
-                let sell_reason = taker_type.clone().sell_reason;
-                let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
-                    .open_price
-                    .to_f32();
-                //以标准信号后续3根为止，所以判断的bar的index为 line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 5]
-                let signal_bal = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 5].to_owned();
-                let remote_average= get_average_info(&line_datas[345..355]);
-                let recent_average = get_average_info(&line_datas[356..=358]);
-
-                let interval_from_take =
-                    line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
-                //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-                let (can_buy, buy_reason) = if
-                    //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
-                    //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
-                    //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
-/*                line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 40].open_time > take_info.take_time
-                    && signal_bal.is_strong_raise()
-                    && signal_bal.volume.to_f32() * 4.0 > take_info.top_bar.volume.to_f32()
-                    && signal_bal.volume.to_f32() / 6.0 > remote_average.1
-                    && signal_bal.close_price.to_f32() < recent_average.0*/
-                //(sell_reason == SellReason::AVeryStrongSignal || sell_reason == SellReason::AStrongSignal)
-                  //  && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price.to_f32() >= take_info.top_bar.high_price.to_f32()
-                sell_reason == SellReason::StartGoDown && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 15
+                /***
+                三种情况平仓
+                    1、大于下单价格的，
+                    2，2小时之内价格的下降坡度小于top之前2小时的爬升坡度的三分之一（每次都对比）
+                    3、过了4小时之后，最近30根15根上扬的
+                平仓的时候只是设置is_took的状态为false，不remove，这样就可以等待后续重新下单的机会
+                */
+                let (up_ratio,down_ratio) = get_down_up_price_ratio(&take_info.top_bar,line_datas);
+                let (can_buy, buy_reason) = if current_price > take_info.sell_price
                 {
-                    (true, "too few volume in last 3 bars")
-                    //} else if volume_too_few(&line_datas[350..],take_info.top_bar.volume.to_f32())
-                    //{
-                    //    (true,"last 10 bars volume too few")
-                } else if (sell_reason == SellReason::AVeryStrongSignal
-                    || sell_reason == SellReason::AStrongSignal
-                    || sell_reason == SellReason::AStrongSignal_V2
-                    || sell_reason == SellReason::AVeryStrongSignal_V2
-                )
-                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time > take_info.take_time
-                    && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
+                    (true, "current price more than open price")
+                } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time < take_info.take_time
+                    && down_ratio < up_ratio.div(3.0)
                 {
-                    (true, "Positive income and held it for two hour，and price start increase")
-                } else if (sell_reason == SellReason::TwoMiddleSignal || sell_reason == SellReason::ThreeContinuousSignal)
-                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
-                    && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
-                {
-                    (true, "Positive income and held it for two hour，and price start increase")
-                } else if sell_reason == SellReason::TwoMiddleSignal_V2
-                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
+                    (true, "down_ratio below than 1/3 of up ratio")
+                }  else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10{
-                    (true, "Positive income and held it for four hour，and price start increase")
+                    (true, hold_four_hour_reason.as_str())
                 } else {
                     (false, "")
                 };
                 if can_buy {
-                    let mut total_amount = 0.0f32;
-                    let mut total_raise_price = 0.0f32;
-                    let mut order_num = 0u32;
-                    for take_info in take_infos {
-                        if take_info.is_took == true{
-                            total_amount += take_info.amount;
-                            total_raise_price += (current_price - take_info.sell_price).div(take_info.sell_price);
-                            order_num += 1;
-                        }
-                    }
-                    //和多久之前的比较，比较多少根？
-                    let sell_reason_str:&str = sell_reason.into();
-                    let push_text = format!(
-                        "strategy:order_num {}, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                        order_num,buy_reason, sell_reason_str, taker_type.pair, total_raise_price);
-                    //fixme: 这里remove会报错
-                    //take_order_pair2.remove(pair_symbol);
                     if is_real_trading {
                         take_order(
                             taker_type.pair.clone(),
-                            total_amount,
+                            take_info.amount,
                             "BUY".to_string(),
                         )
                         .await;
-                        notify_lark(push_text.clone()).await?;
                     }
-                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
-                    take_order_pair.remove(&taker_type);
-                    return Ok((true, -total_raise_price));
+                    //只在最后remove的时候才进行总盈利统计
+                    if buy_reason == hold_four_hour_reason {
+                        //历史的平仓统计，本次的单独计算
+                        let raise_ratio = (current_price - take_info.sell_price + total_history_raise).div(take_info.sell_price);
+                        let push_text = format!(
+                            "strategy, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                            buy_reason, sell_reason_str, taker_type.pair, raise_ratio);
+                        notify_lark(push_text.clone()).await?;
+                        info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
+                        take_order_pair.remove(&taker_type);
+                        return Ok((true, -raise_ratio));
+                    }else {
+                        take_info.buy_price = Some(current_price);
+                        take_info.is_took = false;
+                        return Ok((true, 0.0));
+                    }
                 } else {
                     return Ok((true, 0.0));
                 }
             } else {
                 //加入观察列表五分钟内不在观察，2小时内仍没有二次拉起的则将其移除观察列表
                 if now.sub(take_info.take_time) > 4 * 60 * 60 * 1000 {
+                    let raise_ratio = total_history_raise.div(take_info.sell_price);
+                    let push_text = format!(
+                        "strategy,not found new chance,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                         sell_reason_str, taker_type.pair, raise_ratio);
+                    notify_lark(push_text.clone()).await?;
+                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                     take_order_pair.remove(&taker_type);
                 }
             }
@@ -288,162 +222,3 @@ pub async fn buy(
     }
     Ok((false, 0.0))
 }
-
-//连续的下单尝试拉低下单成本
-/*pub async fn buy(
-    take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
-    taker_type: TakeType,
-    line_datas: &[Kline],
-    is_real_trading: bool,
-) -> Result<(bool, f32), Box<dyn std::error::Error>> {
-    let now = line_datas[359].open_time + 1000;
-    match take_order_pair.get(&taker_type) {
-        None => {}
-        Some(take_infos) => {
-            let last_take_info = take_infos.last().unwrap();
-            //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-            let (can_buy, buy_reason)= if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time
-                > last_take_info.take_time
-                && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
-            {
-                (
-                    true,
-                    "Positive income and held it for two hour，and price start increase",
-                )
-            } else {
-                (false, "")
-            };
-            if can_buy {
-                //和多久之前的比较，比较多少根？
-                let sell_reason_str: &str = taker_type.clone().sell_reason.into();
-                let push_text = format!(
-                    "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {}",
-                    buy_reason, sell_reason_str, taker_type.pair);
-                //fixme: 这里remove会报错
-                //take_order_pair2.remove(pair_symbol);
-                if is_real_trading {
-                    take_order(
-                        taker_type.pair.clone(),
-                        last_take_info.amount * take_infos.len() as f32,
-                        "BUY".to_string(),
-                    )
-                        .await;
-                    notify_lark(push_text.clone()).await?;
-                }
-                //计算总的收入
-                let mut batch_profit = 0.0f32;
-                let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
-                    .open_price
-                    .to_f32();
-                let mut detail_profits = Vec::new();
-                for take_info in take_infos{
-                    let price_raise_ratio = current_price / take_info.price;
-                    let iterm_profit = 1.0 - price_raise_ratio - 0.0008;
-                    batch_profit += iterm_profit;
-                    detail_profits.push((iterm_profit,timestamp2date(take_info.take_time)));
-                }
-                info!("data0001: now {} market {},total_profit {},detail {:?}",timestamp2date(now),taker_type.pair,batch_profit,detail_profits);
-                take_order_pair.remove(&taker_type);
-                //warn!("now {} , {}", timestamp2date(now), push_text);
-                return Ok((true, batch_profit));
-            } else {
-                return Ok((true, 0.0));
-            }
-        }
-    }
-    Ok((false, 0.0))
-}*/
-
-//连续下单的第二个版本
-//10分钟内有发现第二根就不平仓,如果10根中，5根上涨就平仓,10分钟内，有五根大于顶点的,
-// 10分钟外，就直接现有的30根10个向上的逻辑,以最后一次sell为准,观察周期为2小时
-/*pub async fn buy(
-    take_order_pair: &mut HashMap<TakeType, Vec<TakeOrderInfo>>,
-    taker_type: TakeType,
-    line_datas: &[Kline],
-    is_real_trading: bool,
-) -> Result<(bool, f32), Box<dyn std::error::Error>> {
-    let now = line_datas[359].open_time + 1000;
-    match take_order_pair.get_mut(&taker_type) {
-        None => {}
-        Some(take_infos) => {
-            let last_take_info = take_infos.last().unwrap();
-            //The last one must be order which haven't buy
-            if last_take_info.buy_price.is_some() {
-                //todo:这里是下sell单之后3小时之内的插眼结束，实际要的是buy之后的3小时结束，有差别但是不大
-                if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 180].open_time > last_take_info.take_time
-                {
-                    take_order_pair.remove(&taker_type);
-                }
-                return Ok((false, 0.0));
-            }
-
-            //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
-            let (can_buy, buy_reason) = if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30].open_time
-                > last_take_info.take_time
-                && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
-            {
-                (
-                    true,
-                    "Positive income and held it for two hour，and price start increase",
-                )
-                //最近30根中有五根大于最后一次顶点的
-            } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30].open_time
-                <= last_take_info.take_time
-                && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]
-                .iter()
-                .filter(|&k| k.open_time > last_take_info.take_time && k.close_price.to_f32() > last_take_info.sell_price)
-                .collect::<Vec<&Kline>>().len() >= 5
-            {
-                (
-                    true,
-                    "buy reason: 最近30根中有五根大于最后一次顶点的",
-                )
-            } else {
-                (false, "")
-            };
-            if can_buy {
-                //和多久之前的比较，比较多少根？
-                let sell_reason_str: &str = taker_type.clone().sell_reason.into();
-                let push_text = format!(
-                    "strategy2: buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {}",
-                    buy_reason, sell_reason_str, taker_type.pair);
-                //fixme: 这里remove会报错
-                //take_order_pair2.remove(pair_symbol);
-                if is_real_trading {
-                    take_order(
-                        taker_type.pair.clone(),
-                        last_take_info.amount * take_infos.len() as f32,
-                        "BUY".to_string(),
-                    )
-                        .await;
-                    notify_lark(push_text.clone()).await?;
-                }
-                //计算总的收入
-                let mut batch_profit = 0.0f32;
-                let current_price = line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1]
-                    .open_price
-                    .to_f32();
-                let mut detail_profits = Vec::new();
-                for take_info in take_infos.iter_mut() {
-                    if take_info.buy_price.is_none() {
-                        take_info.buy_price = Some(line_datas[359].open_price.to_f32())
-                    }else {
-                        //之前已经统计过的数据不再统计
-                        continue;
-                    }
-                    let price_raise_ratio = current_price / take_info.sell_price;
-                    let iterm_profit = 1.0 - price_raise_ratio - 0.0008;
-                    batch_profit += iterm_profit;
-                    detail_profits.push((iterm_profit, timestamp2date(take_info.take_time)));
-                }
-                info!("data0001: now {} market {},total_profit {},detail {:?}",timestamp2date(now),taker_type.pair,batch_profit,detail_profits);
-                //warn!("now {} , {}", timestamp2date(now), push_text);
-                return Ok((true, batch_profit));
-            } else {
-                return Ok((true, 0.0));
-            }
-        }
-    }
-    Ok((false, 0.0))
-}*/
