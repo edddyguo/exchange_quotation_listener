@@ -175,8 +175,9 @@ pub async fn buy(
                 } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time < take_info.take_time
                 {
                     let (up_ratio,down_ratio) = get_down_up_price_ratio(&take_info.top_bar,line_datas);
+                    warn!("down_ratio({}), up ratio({})",down_ratio,up_ratio);
                     if down_ratio < up_ratio.div(3.0) {
-                        (true, "down_ratio({}) below than 1/3 of up ratio({})",down_ratio,up_ratio);
+                        (true, "down_ratio below than 1/3 of up ratio")
                     }else {
                         (false, "")
                     }
