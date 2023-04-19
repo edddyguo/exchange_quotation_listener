@@ -229,6 +229,7 @@ pub async fn buy(
                     }
                     info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                     take_order_pair.remove(&taker_type);
+                    return Ok((true, -raise_ratio));
                 }
             }
         }
