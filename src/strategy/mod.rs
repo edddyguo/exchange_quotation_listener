@@ -127,9 +127,9 @@ fn get_down_up_price_ratio(top_bar: &Kline,line_datas: &[Kline]) -> (f32,f32){
     let symmetry_up_bar = line_datas[symmetry_up_bar_index].to_owned();
 
     let down_ratio = (last_bar.close_price.to_f32() - top_bar.close_price.to_f32())
-            .div((last_bar.kline_close_time - top_bar.kline_close_time).div(1000) as f32);
+            .div((last_bar.kline_close_time - top_bar.kline_close_time).div(60 * 1000) as f32);
     let up_ratio = (top_bar.close_price.to_f32() - symmetry_up_bar.close_price.to_f32())
-        .div((top_bar.kline_close_time - symmetry_up_bar.kline_close_time).div(1000) as f32);
+        .div((top_bar.kline_close_time - symmetry_up_bar.kline_close_time).div(60 * 1000) as f32);
 
     (up_ratio,-down_ratio)
 }
@@ -188,6 +188,10 @@ pub async fn buy(
                     (false, "")
                 };
                 if can_buy {
+                    let raise_ratio = (current_price - take_info.sell_price + total_history_raise).div(take_info.sell_price);
+                    let push_text = format!(
+                        "strategy, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                        buy_reason, sell_reason_str, taker_type.pair, raise_ratio);
                     if is_real_trading {
                         take_order(
                             taker_type.pair.clone(),
@@ -195,18 +199,12 @@ pub async fn buy(
                             "BUY".to_string(),
                         )
                         .await;
+                        notify_lark(push_text.clone()).await?;
                     }
                     //只在最后remove的时候才进行总盈利统计
                     if buy_reason == hold_four_hour_reason {
                         //历史的平仓统计，本次的单独计算
-                        let raise_ratio = (current_price - take_info.sell_price + total_history_raise).div(take_info.sell_price);
-                        let push_text = format!(
-                            "strategy, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                            buy_reason, sell_reason_str, taker_type.pair, raise_ratio);
-                        if is_real_trading {
-                            notify_lark(push_text.clone()).await?;
-                        }
-                        info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
+                        take_info.buy_price = Some(current_price);
                         take_order_pair.remove(&taker_type);
                         return Ok((true, -raise_ratio));
                     }else {
@@ -214,6 +212,8 @@ pub async fn buy(
                         take_info.is_took = false;
                         return Ok((true, 0.0));
                     }
+                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
+
                 } else {
                     return Ok((true, 0.0));
                 }
