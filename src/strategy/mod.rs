@@ -224,7 +224,9 @@ pub async fn buy(
                     let push_text = format!(
                         "strategy,not found new chance,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
                          sell_reason_str, taker_type.pair, raise_ratio);
-                    notify_lark(push_text.clone()).await?;
+                    if is_real_trading {
+                        notify_lark(push_text.clone()).await?;
+                    }
                     info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                     take_order_pair.remove(&taker_type);
                 }
