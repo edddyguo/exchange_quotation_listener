@@ -153,7 +153,12 @@ pub async fn buy(
         Some(take_infos) => {
             let total_history_raise = take_infos
                 .iter()
-                .map(|x| x.buy_price.unwrap().sub(x.sell_price))
+                .map(|x|
+                    match x.buy_price {
+                        None => {0.0}
+                        Some(buy_price) => {buy_price.sub(x.sell_price)}
+                    }
+                )
                 .sum::<f32>();
             let take_info = take_infos.last_mut().unwrap();
             if take_info.is_took == true {
@@ -164,14 +169,17 @@ pub async fn buy(
                     3、过了4小时之后，最近30根15根上扬的
                 平仓的时候只是设置is_took的状态为false，不remove，这样就可以等待后续重新下单的机会
                 */
-                let (up_ratio,down_ratio) = get_down_up_price_ratio(&take_info.top_bar,line_datas);
                 let (can_buy, buy_reason) = if current_price > take_info.sell_price
                 {
                     (true, "current price more than open price")
                 } else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 120].open_time < take_info.take_time
-                    && down_ratio < up_ratio.div(3.0)
                 {
-                    (true, "down_ratio below than 1/3 of up ratio")
+                    let (up_ratio,down_ratio) = get_down_up_price_ratio(&take_info.top_bar,line_datas);
+                    if down_ratio < up_ratio.div(3.0) {
+                        (true, "down_ratio({}) below than 1/3 of up ratio({})",down_ratio,up_ratio);
+                    }else {
+                        (false, "")
+                    }
                 }  else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10{
                     (true, hold_four_hour_reason.as_str())
@@ -194,7 +202,9 @@ pub async fn buy(
                         let push_text = format!(
                             "strategy, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
                             buy_reason, sell_reason_str, taker_type.pair, raise_ratio);
-                        notify_lark(push_text.clone()).await?;
+                        if is_real_trading {
+                            notify_lark(push_text.clone()).await?;
+                        }
                         info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
                         take_order_pair.remove(&taker_type);
                         return Ok((true, -raise_ratio));
