@@ -151,6 +151,14 @@ pub async fn buy(
     match take_order_pair.get_mut(&taker_type) {
         None => {}
         Some(take_infos) => {
+            let order_size = take_infos.len();
+            let hold_minutes = if order_size == 1 {
+                120
+            }else if order_size == 2{
+                240
+            }else {
+                350
+            };
             let total_history_raise = take_infos
                 .iter()
                 .map(|x|
@@ -181,7 +189,7 @@ pub async fn buy(
                     }else {
                         (false, "")
                     }
-                }  else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
+                }  else if line_datas[KLINE_NUM_FOR_FIND_SIGNAL - hold_minutes].open_time > take_info.take_time
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10{
                     (true, hold_four_hour_reason.as_str())
                 } else {
