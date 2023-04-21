@@ -141,16 +141,19 @@ pub async fn sell(
         .to_fix(pair.quantity_precision as u32);
 
     //todo: 将其中通用的计算逻辑拿出来
-    if !ass_exist && is_break {
-        ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    //if !ass_exist && is_break {
+    if is_break {
+            ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
-    if !avss_exist && is_break{
+    //if !avss_exist && is_break{
+    if is_break{
         AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 
 
     if tms_exist.is_none() && is_break
-        || tms_exist.is_some() && tms_exist.unwrap() == false
+        //|| tms_exist.is_some() && tms_exist.unwrap() == false
+        || tms_exist.is_some()
     {
         TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
@@ -163,7 +166,8 @@ pub async fn sell(
 */
 
     if tcs_exist.is_none() && is_break
-        || tcs_exist.is_some() && tcs_exist.unwrap() == false
+        //|| tcs_exist.is_some() && tcs_exist.unwrap() == false
+        || tcs_exist.is_some()
     {
         TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
@@ -249,18 +253,21 @@ pub async fn buy(
                     let mut total_amount = 0.0f32;
                     let mut total_raise_price = 0.0f32;
                     let mut order_num = 0u32;
+                    let mut profit_detail = Vec::new();
                     for take_info in take_infos {
                         if take_info.is_took == true{
                             total_amount += take_info.amount;
-                            total_raise_price += (current_price - take_info.sell_price).div(take_info.sell_price);
+                            let current_profit = (current_price - take_info.sell_price).div(take_info.sell_price);
+                            total_raise_price += current_profit;
+                            profit_detail.push(current_profit);
                             order_num += 1;
                         }
                     }
                     //和多久之前的比较，比较多少根？
                     let sell_reason_str:&str = sell_reason.into();
                     let push_text = format!(
-                        "strategy:order_num {}, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                        order_num,buy_reason, sell_reason_str, taker_type.pair, total_raise_price);
+                        "strategy:order_num {},profit_detail {:?}, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                        order_num,profit_detail,buy_reason, sell_reason_str, taker_type.pair, total_raise_price);
                     //fixme: 这里remove会报错
                     //take_order_pair2.remove(pair_symbol);
                     if is_real_trading {

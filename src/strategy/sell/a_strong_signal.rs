@@ -25,11 +25,11 @@ impl ASS {
         price:f32,
         is_real_trading: bool,
     ) -> Result<bool, Box<dyn Error>> {
-        for kline in line_datas[300..353].iter(){
+        /*for kline in line_datas[300..353].iter(){
             if kline.volume.to_f32() > line_datas[358].volume.to_f32() {
                 return Ok(false)
             }
-        }
+        }*/
         let pair_symbol = pair.symbol.as_str();
         let now = line_datas[359].open_time + 1000;
         let half_hour_inc_ratio =
