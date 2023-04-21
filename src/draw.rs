@@ -5,7 +5,8 @@ pub fn draw_profit_change(data: Vec<(u64,f32)>,year:u32,month:u8,reason:&str) ->
     let start = data.first().unwrap().0;
     let end = data.last().unwrap().0;
     let image_name = format!("reason {} year {} month {}",reason,year,month);
-    let root = BitMapBackend::new("plotters-doc-data/5.png", (1280*2, 960*2)).into_drawing_area();
+    let path =  format!("plotters-doc-data/{}.png",image_name);
+    let root = BitMapBackend::new(&path, (1280*2, 960*2)).into_drawing_area();
     root.fill(&WHITE);
     let root = root.margin(10, 10, 10, 10);
     // After this point, we should be able to construct a chart context

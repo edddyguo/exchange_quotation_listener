@@ -340,7 +340,13 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
     let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
     let mut profit_change: HashMap<SellReason,Vec<(u64,f32)>> = HashMap::new();
     for reason in SellReason::iter() {
-        profit_change.insert(reason,vec![]);
+        if reason == AStrongSignal
+            || reason == TwoMiddleSignal
+            || reason == ThreeContinuousSignal
+            || reason == AVeryStrongSignal
+        {
+            profit_change.insert(reason, vec![]);
+        }
     }
 
     for (index,pair) in all_pairs.iter().enumerate() {
@@ -411,7 +417,13 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
     }
 
     for reason in SellReason::iter(){
-        draw_profit_change(profit_change.get(&reason).unwrap().to_owned(),year,month,reason.into()).unwrap();
+        if reason == AStrongSignal
+            || reason == TwoMiddleSignal
+            || reason == ThreeContinuousSignal
+            || reason == AVeryStrongSignal
+        {
+            draw_profit_change(profit_change.get(&reason).unwrap().to_owned(),year,month,reason.into()).unwrap();
+        }
     }
     //draw_profit_change(profit_change,year,month).unwrap();
     return all_reason_total_profit;
