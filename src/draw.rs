@@ -1,10 +1,10 @@
 use plotters::prelude::*;
-pub fn draw_profit_change(data: Vec<(u64,f32)>,year:u32,month:u8) -> Result<(), Box<dyn std::error::Error>> {
+pub fn draw_profit_change(data: Vec<(u64,f32)>,year:u32,month:u8,reason:&str) -> Result<(), Box<dyn std::error::Error>> {
     let data = data.iter().map(|x| (x.0 as f32,x.1)).collect::<Vec<(f32,f32)>>();
     //,start: u64,end:u64
     let start = data.first().unwrap().0;
     let end = data.last().unwrap().0;
-    let image_name = format!("year {} month {}",year,month);
+    let image_name = format!("reason {} year {} month {}",reason,year,month);
     let root = BitMapBackend::new("plotters-doc-data/5.png", (1280*2, 960*2)).into_drawing_area();
     root.fill(&WHITE);
     let root = root.margin(10, 10, 10, 10);

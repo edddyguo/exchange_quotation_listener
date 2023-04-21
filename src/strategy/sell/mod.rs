@@ -12,6 +12,8 @@ use crate::ex_info::Symbol;
 use crate::{Kline, Pair, StrategyEffect, TakeOrderInfo};
 use async_trait::async_trait;
 use std::collections::HashMap;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct TakeType {
@@ -21,7 +23,7 @@ pub struct TakeType {
 
 //context is the bar detail
 //v2 is super v1，reduce profit and get more win ratio
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash,EnumIter)]
 pub enum SellReason {
     AStrongSignal,
     AStrongSignal_V2,

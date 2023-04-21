@@ -21,6 +21,8 @@ rayon = "1.6.1"
 csv = "1.1"
 async-trait = "0.1.66"
 plotters = "0.3.4"
+strum_macros = "0.24.3"
+strum = "0.24.1"
 
 [features]
 json = ["serde_json"]

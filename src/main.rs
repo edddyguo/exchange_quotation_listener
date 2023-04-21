@@ -50,6 +50,7 @@ use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
 use crate::draw::draw_profit_change;
 use crate::SellReason::{AStrongSignal_V2, AVeryStrongSignal, AVeryStrongSignal_V2, SequentialTakeOrder, StartGoDown, TwoMiddleSignal_V2};
+use strum::IntoEnumIterator;
 
 //15分钟粒度，价格上涨百分之1，量上涨10倍（暂时5倍）可以触发预警
 //监控所有开了永续合约的交易对
@@ -337,7 +338,11 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
         ];
     let all_pairs = list_all_pair().await;
     let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
-    let mut profit_change = Vec::new();
+    let mut profit_change: HashMap<SellReason,Vec<(u64,f32)>> = HashMap::new();
+    for reason in SellReason::iter() {
+        profit_change.insert(reason,vec![]);
+    }
+
     for (index,pair) in all_pairs.iter().enumerate() {
         //for test recent kline
         /*
@@ -369,7 +374,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                 };
                 // fixme：间隔2小时之后的buy为最后一次，此时再统计盈利
                 let (_is_took, profit) =
-                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
+                    strategy::buy(&mut take_order_pair, take_type.clone(), &line_datas, false)
                         .await
                         .unwrap();
                 effect.total_profit += profit;
@@ -385,7 +390,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                     info!("tmp:year {} month {} ,detail {:?}",year,month,effect);
                 }
                 let date = get_unix_timestamp_ms().div(1000).div(60*60) as u64;
-                profit_change.push((date,effect.total_profit));
+                profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date,effect.total_profit));
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
                 /* if is_took {
@@ -404,7 +409,11 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
         }
     }
-    draw_profit_change(profit_change,year,month).unwrap();
+
+    for reason in SellReason::iter(){
+        draw_profit_change(profit_change.get(&reason).unwrap().to_owned(),year,month,reason.into()).unwrap();
+    }
+    //draw_profit_change(profit_change,year,month).unwrap();
     return all_reason_total_profit;
 }
 
