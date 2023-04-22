@@ -4,7 +4,7 @@ pub fn draw_profit_change(data: Vec<(u64,f32)>,year:u32,month:u8,reason:&str) ->
     //,start: u64,end:u64
     let start = data.first().unwrap().0;
     let end = data.last().unwrap().0;
-    let image_name = format!("reason {} year {} month {}",reason,year,month);
+    let image_name = format!("{}_{}_{}",reason,year,month);
     let path =  format!("plotters-doc-data/{}.png",image_name);
     let root = BitMapBackend::new(&path, (1280*2, 960*2)).into_drawing_area();
     root.fill(&WHITE);

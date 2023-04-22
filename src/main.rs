@@ -350,6 +350,9 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
     }
 
     for (index,pair) in all_pairs.iter().enumerate() {
+        if  !pair.symbol.contains("TUSDT") &&  !pair.symbol.contains("MUSDT") {
+            continue
+        }
         //for test recent kline
         /*
         if pair.symbol != "ZILUSDT" {
@@ -394,9 +397,10 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                         effect.lose_txs += 1;
                     }
                     info!("tmp:year {} month {} ,detail {:?}",year,month,effect);
+                    let date = line_datas[359].open_time.div(60 * 60 * 1000);
+                    profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date,effect.total_profit));
                 }
-                let date = get_unix_timestamp_ms().div(1000).div(60*60) as u64;
-                profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date,effect.total_profit));
+
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
                 //无论是否下单，都继续sell筛选，sell里面保证没有重复下单
                 /* if is_took {
