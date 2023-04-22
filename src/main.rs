@@ -429,7 +429,9 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
         {
             let reason_str: &str = reason.clone().into();
             warn!("reason {} year {} month {} ---{:?}",reason_str,year,month,profit_change.get(&reason).unwrap().to_owned());
-            draw_profit_change(profit_change.get(&reason).unwrap().to_owned(), year, month, reason.into()).unwrap();
+            let mut data = profit_change.get(&reason).unwrap().to_owned();
+            data.sort_by(|a,b| a.0.partial_cmp(&b.0).unwrap());
+            draw_profit_change(data, year, month, reason.into()).unwrap();
         }
     }
     //draw_profit_change(profit_change,year,month).unwrap();

@@ -1,9 +1,14 @@
+use std::ops::Sub;
 use plotters::prelude::*;
+use crate::MathOperation;
+
 pub fn draw_profit_change(data: Vec<(u64,f32)>,year:u32,month:u8,reason:&str) -> Result<(), Box<dyn std::error::Error>> {
-    let data = data.iter().map(|x| (x.0 as f32,x.1)).collect::<Vec<(f32,f32)>>();
+    let start = data.first().unwrap().0 as f32;
+    let end = data.last().unwrap().0 as f32 - start;
+    let data = data.iter().map(|x|
+        ((x.0 as f32).sub(start),x.1.to_fix(3)))
+        .collect::<Vec<(f32,f32)>>();
     //,start: u64,end:u64
-    let start = data.first().unwrap().0;
-    let end = data.last().unwrap().0;
     let image_name = format!("{}_{}_{}",reason,year,month);
     let path =  format!("plotters-doc-data/{}.png",image_name);
     let root = BitMapBackend::new(&path, (1280*2, 960*2)).into_drawing_area();
@@ -17,7 +22,7 @@ pub fn draw_profit_change(data: Vec<(u64,f32)>,year:u32,month:u8,reason:&str) ->
         .x_label_area_size(20)
         .y_label_area_size(40)
         // Finally attach a coordinate on the drawing area and make a chart context
-        .build_cartesian_2d(start..end, -5.0f32..10f32)?;
+        .build_cartesian_2d(0f32..end, -5.0f32..10f32)?;
 
     // Then we can draw a mesh
     chart
