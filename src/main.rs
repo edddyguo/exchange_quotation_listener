@@ -399,7 +399,7 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
                     }
                     info!("tmp:year {} month {} ,detail {:?}",year,month,effect);
                     let date = line_datas[359].open_time.div(60 * 60 * 1000);
-                    profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date, effect.total_profit));
+                    profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date, profit));
                 }
 
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
@@ -428,9 +428,14 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
             || reason == AVeryStrongSignal
         {
             let reason_str: &str = reason.clone().into();
-            warn!("reason {} year {} month {} ---{:?}",reason_str,year,month,profit_change.get(&reason).unwrap().to_owned());
             let mut data = profit_change.get(&reason).unwrap().to_owned();
             data.sort_by(|a,b| a.0.partial_cmp(&b.0).unwrap());
+            let mut sum_profit = 0f32;
+            for (index,(_,profit)) in data.clone().iter().enumerate() {
+                sum_profit += profit;
+                data[index].1 = sum_profit;
+            }
+            warn!("reason {} year {} month {} ---{:?}",reason_str,year,month,data);
             draw_profit_change(data, year, month, reason.into()).unwrap();
         }
     }
