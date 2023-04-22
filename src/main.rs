@@ -121,7 +121,7 @@ struct RateLimits {
 }
 
 //symbol -> order time,price,amount
-#[derive(Debug, Serialize,Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct TakeOrderInfo {
     take_time: u64,
     //如果没下单，则以30分钟内尝试检测是否再次拉升
@@ -248,14 +248,14 @@ pub async fn excute_real_trading() {
         std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
         times += 1;
         if times % 30 == 0 {
-            notify_lark(format!("System run normally {} times",times)).await.unwrap();
+            notify_lark(format!("System run normally {} times", times)).await.unwrap();
         }
         warn!("complete listen all pairs,and start next minute");
     }
 }
 
 pub async fn execute_back_testing(
-    year:u32,
+    year: u32,
     history_data: HashMap<Symbol, Vec<Kline>>,
     month: u8,
 ) -> Vec<(SellReason, f32, u32)> {
@@ -265,7 +265,7 @@ pub async fn execute_back_testing(
     let mut all_reason_total_profit: Vec<(SellReason, f32, u32)> =
         vec![(AStrongSignal, 0.0, 0), (TwoMiddleSignal, 0.0, 0)];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
-    let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
+    let eth_klines = load_history_data_by_pair(year, "ETHUSDT", month).await;
     for (pair, klines) in history_data {
         warn!(
             "start test {},klines size {}",
@@ -321,24 +321,24 @@ pub async fn execute_back_testing(
 }
 
 
-pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
+pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
     let mut all_reason_total_profit: Vec<StrategyEffect> =
         vec![
-                       StrategyEffect::new(AStrongSignal),
-                       //StrategyEffect::new(AStrongSignal_V2),
-                       StrategyEffect::new(TwoMiddleSignal),
-                       //StrategyEffect::new(TwoMiddleSignal_V2),
-                       StrategyEffect::new(ThreeContinuousSignal),
-                       StrategyEffect::new(AVeryStrongSignal),
-                       //StrategyEffect::new(AVeryStrongSignal_V2),
-                       //StrategyEffect::new(StartGoDown),
+            StrategyEffect::new(AStrongSignal),
+            //StrategyEffect::new(AStrongSignal_V2),
+            StrategyEffect::new(TwoMiddleSignal),
+            //StrategyEffect::new(TwoMiddleSignal_V2),
+            StrategyEffect::new(ThreeContinuousSignal),
+            StrategyEffect::new(AVeryStrongSignal),
+            //StrategyEffect::new(AVeryStrongSignal_V2),
+            //StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;
-    let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
-    let mut profit_change: HashMap<SellReason,Vec<(u64,f32)>> = HashMap::new();
+    let eth_klines = load_history_data_by_pair(year, "ETHUSDT", month).await;
+    let mut profit_change: HashMap<SellReason, Vec<(u64, f32)>> = HashMap::new();
     for reason in SellReason::iter() {
         if reason == AStrongSignal
             || reason == TwoMiddleSignal
@@ -349,12 +349,13 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
         }
     }
 
-    for (index,pair) in all_pairs.iter().enumerate() {
-        if  !pair.symbol.contains("TUSDT") &&  !pair.symbol.contains("MUSDT") {
-            continue
-        }
+    for (index, pair) in all_pairs.iter().enumerate() {
         //for test recent kline
         /*
+        if  !pair.symbol.contains("TUSDT") &&  !pair.symbol.contains("MUSDT") {
+           continue
+       }
+
         if pair.symbol != "ZILUSDT" {
             continue
         }
@@ -366,7 +367,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
         let klines = try_get::<Vec<Kline>>(kline_url).await.to_vec();
         */
         warn!("date({}-{}):start test index {} symbol {}", year,month,index,pair.symbol.as_str());
-        let klines = load_history_data_by_pair(year,&pair.symbol, month).await;
+        let klines = load_history_data_by_pair(year, &pair.symbol, month).await;
         if klines.is_empty() {
             continue;
         }
@@ -398,7 +399,7 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
                     }
                     info!("tmp:year {} month {} ,detail {:?}",year,month,effect);
                     let date = line_datas[359].open_time.div(60 * 60 * 1000);
-                    profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date,effect.total_profit));
+                    profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date, effect.total_profit));
                 }
 
                 //当前reason下：0、还没加入观察列表，1、还没开始下卖单，2、已经下卖单但不符合平仓条件
@@ -409,31 +410,33 @@ pub async fn execute_back_testing2(year:u32,month: u8) -> Vec<StrategyEffect> {
             }
 
 
-           /* if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03
-                || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.05)
-            {
-                continue;
-            }*/
+            /* if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03
+                 || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.05)
+             {
+                 continue;
+             }*/
 
 
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
         }
     }
 
-    for reason in SellReason::iter(){
+    for reason in SellReason::iter() {
         if reason == AStrongSignal
             || reason == TwoMiddleSignal
             || reason == ThreeContinuousSignal
             || reason == AVeryStrongSignal
         {
-            draw_profit_change(profit_change.get(&reason).unwrap().to_owned(),year,month,reason.into()).unwrap();
+            let reason_str: &str = reason.clone().into();
+            warn!("reason {} year {} month {} ---{:?}",reason_str,year,month,profit_change.get(&reason).unwrap().to_owned());
+            draw_profit_change(profit_change.get(&reason).unwrap().to_owned(), year, month, reason.into()).unwrap();
         }
     }
     //draw_profit_change(profit_change,year,month).unwrap();
     return all_reason_total_profit;
 }
 
-pub async fn execute_back_testing3(year:u32,month: u8) -> Vec<StrategyEffect> {
+pub async fn execute_back_testing3(year: u32, month: u8) -> Vec<StrategyEffect> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
@@ -447,10 +450,10 @@ pub async fn execute_back_testing3(year:u32,month: u8) -> Vec<StrategyEffect> {
         ];
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let all_pairs = list_all_pair().await;
-    let eth_klines = load_history_data_by_pair(year,"ETHUSDT", month).await;
+    let eth_klines = load_history_data_by_pair(year, "ETHUSDT", month).await;
     for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
-        let klines = load_history_data_by_pair(year,&pair.symbol, month).await;
+        let klines = load_history_data_by_pair(year, &pair.symbol, month).await;
         if klines.is_empty() {
             continue;
         }
@@ -504,15 +507,15 @@ pub async fn execute_back_testing3(year:u32,month: u8) -> Vec<StrategyEffect> {
 }
 
 //开多仓逻辑,1天后平仓
-pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
+pub async fn execute_back_testing4(year: u32, month: u8) -> Vec<StrategyEffect> {
     let mut take_order_pair: HashMap<String, (u64, f32)> = HashMap::new();
     ///reason,total_profit,txs
     let mut all_reason_total_profit: Vec<StrategyEffect> = vec![StrategyEffect::new(SellReason::Buy1)];
     let all_pairs = list_all_pair().await;
-    let mut profit_info = (0u32,0u32,0u32,0.0f32);
+    let mut profit_info = (0u32, 0u32, 0u32, 0.0f32);
     for pair in all_pairs.iter() {
         warn!("start test {}", pair.symbol.as_str());
-        let klines = load_history_data_by_pair(year,&pair.symbol, month).await;
+        let klines = load_history_data_by_pair(year, &pair.symbol, month).await;
         if klines.is_empty() {
             continue;
         }
@@ -521,9 +524,9 @@ pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
         for bar in &klines[359..] {
             let line_datas = &klines[index..(index + 360)];
             index += 1;
-            let last_bar  = line_datas[358].clone();
-            let current_bar  = line_datas[359].clone();
-            let bar_1h_ago  = line_datas[345].clone();
+            let last_bar = line_datas[358].clone();
+            let current_bar = line_datas[359].clone();
+            let bar_1h_ago = line_datas[345].clone();
 
             let mut remote_klines = line_datas[0..=340].to_owned();
             let mut recent_klines = line_datas[342..].to_owned();
@@ -543,8 +546,8 @@ pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
                 }
                 Some(info) => {
                     //6小时强制平多单
-                  /*  if last_bar.open_time - info.to_owned().0 >  20 * 60 * 1000
-                        && last_bar.close_price.to_f32() < bar_1h_ago.close_price.to_f32()*/
+                    /*  if last_bar.open_time - info.to_owned().0 >  20 * 60 * 1000
+                          && last_bar.close_price.to_f32() < bar_1h_ago.close_price.to_f32()*/
                     if last_bar.close_price.to_f32() < bar_1h_ago.close_price.to_f32()
                     {
                         //start sell
@@ -554,7 +557,7 @@ pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
                         let raise_ratio = (current_bar.open_price.to_f32() - info.to_owned().1) / info.to_owned().1;
                         if raise_ratio > 0.0 {
                             profit_info.1 += 1
-                        }else {
+                        } else {
                             profit_info.2 += 1
                         }
                         profit_info.3 += raise_ratio;
@@ -563,7 +566,6 @@ pub async fn execute_back_testing4(year:u32,month: u8) -> Vec<StrategyEffect> {
                 }
             }
         }
-
     }
     info!("tmp0003:year {} month {} txs {},win_txs {},lose_txs {},total_ratio {}",
         year,month,profit_info.0,profit_info.1,profit_info.2,profit_info.3);
@@ -595,8 +597,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("back_testing");
             for year in 2020u32..2023u32 {
                 for month in 1..=12 {
-                    let history_data = load_history_data(year,month).await;
-                    let datas = execute_back_testing(year,history_data, month).await;
+                    let history_data = load_history_data(year, month).await;
+                    let datas = execute_back_testing(year, history_data, month).await;
                     for (reason, total_profit, txs) in datas {
                         let reason_str: &str = reason.into();
                         warn!(
@@ -615,7 +617,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             for year in 2023u32..=2023u32 {
                 let months = if year == 2023 {
                     1..=3
-                }else {
+                } else {
                     1..=12
                 };
                 rayon::scope(|scope| {
@@ -623,7 +625,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
-                                let datas = execute_back_testing2(year,month).await;
+                                let datas = execute_back_testing2(year, month).await;
                                 for data in datas {
                                     warn!("finally: year {} month {},detail {:?}",year,month,data);
                                 }
@@ -642,7 +644,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
-                                let datas = execute_back_testing3(year,month).await;
+                                let datas = execute_back_testing3(year, month).await;
                                 for data in datas {
                                     warn!("finally: month {},detail {:?}",month,data);
                                 }
@@ -661,7 +663,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
-                                execute_back_testing4(year,month).await;
+                                execute_back_testing4(year, month).await;
                             });
                         });
                     }
