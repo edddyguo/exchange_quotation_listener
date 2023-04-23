@@ -54,9 +54,9 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         .to_f32();
     //最近2小时，交易量不能有大于准顶量1.5倍的
     for (index, bar) in line_datas[..358].iter().enumerate() {
-        if index <= 340 && bar.volume.to_f32().div(10.0) > line_datas[358].volume.to_f32() {
+        if index <= 340 && bar.volume.to_f32().div(3.0) > line_datas[358].volume.to_f32() {
             return false;
-        } else if index > 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
+        } else if index > 340 && bar.volume.to_f32().div(3.0) > line_datas[358].volume.to_f32() {
             return false;
         }
     }
@@ -81,7 +81,7 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         recent_price_increase_rate,
         recent_huge_volume_bars_num
     );
-    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 4 {
+    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 6 {
         return true;
     }
     false
@@ -263,11 +263,17 @@ pub async fn buy(
                             order_num += 1;
                         }
                     }
+                    //如果当前仍处于亏损状态，则就一直等待
+                    if total_raise_price >= -0.01 {
+                        return Ok((false,0.0));
+                    }
+                    let first_open_time = take_infos.first().unwrap().take_time;
+                    let spend_time = (now - first_open_time).div(24*60*60*1000);//day
                     //和多久之前的比较，比较多少根？
                     let sell_reason_str:&str = sell_reason.into();
                     let push_text = format!(
-                        "strategy:order_num {},profit_detail {:?}, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
-                        order_num,profit_detail,buy_reason, sell_reason_str, taker_type.pair, total_raise_price);
+                        "strategy:spend {} day, order_num {},profit_detail {:?}, buy_reason <<{}>>,sell_reason <<{}>>:: take_buy_order: market {},price_raise_ratio {}",
+                        spend_time,order_num,profit_detail,buy_reason, sell_reason_str, taker_type.pair, total_raise_price);
                     //fixme: 这里remove会报错
                     //take_order_pair2.remove(pair_symbol);
                     if is_real_trading {
@@ -279,7 +285,8 @@ pub async fn buy(
                         .await;
                         notify_lark(push_text.clone()).await?;
                     }
-                    info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
+                    //info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
+                    info!("data0001: now {} market {},detail {:?}",timestamp2date(now),taker_type.pair,push_text);
                     take_order_pair.remove(&taker_type);
                     return Ok((true, -total_raise_price));
                 } else {
