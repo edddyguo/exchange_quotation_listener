@@ -6,12 +6,12 @@ use crate::kline::volume_too_few;
 use crate::strategy::sell::a_strong_signal::ASS;
 use crate::strategy::sell::two_middle_signal::TMS;
 use crate::strategy::sell::{SellReason, SellStrategy};
-use crate::{
-    get_average_info, get_huge_volume_bar_num, get_last_bar_shape_score, get_last_bar_volume_score,
-    get_raise_bar_num, notify_lark, recent_kline_shape_score, strategy, take_order, timestamp2date,
-    Kline, MathOperation, MathOperation2, Pair, Symbol, TakeOrderInfo, TakeType,
-    INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL2, KLINE_NUM_FOR_FIND_SIGNAL,
-};
+use crate::{get_average_info, get_huge_volume_bar_num, get_last_bar_shape_score,
+            get_last_bar_volume_score, get_raise_bar_num,
+            notify_lark, recent_kline_shape_score, strategy,
+            take_order, timestamp2date, Kline, MathOperation, MathOperation2, Pair, Symbol,
+            TakeOrderInfo, TakeType, INCREASE_PRICE_LEVEL2, INCREASE_VOLUME_LEVEL2,
+            KLINE_NUM_FOR_FIND_SIGNAL, MAX_PROFIT_LOSE_RATIO};
 use std::collections::HashMap;
 use std::ops::{Deref, Div, Mul, Sub};
 use rust_decimal::prelude::ToPrimitive;
@@ -54,9 +54,9 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         .to_f32();
     //最近2小时，交易量不能有大于准顶量1.5倍的
     for (index, bar) in line_datas[..358].iter().enumerate() {
-        if index <= 340 && bar.volume.to_f32().div(3.0) > line_datas[358].volume.to_f32() {
+        if index <= 340 && bar.volume.to_f32().div(10.0) > line_datas[358].volume.to_f32() {
             return false;
-        } else if index > 340 && bar.volume.to_f32().div(3.0) > line_datas[358].volume.to_f32() {
+        } else if index > 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
             return false;
         }
     }
@@ -81,7 +81,7 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         recent_price_increase_rate,
         recent_huge_volume_bars_num
     );
-    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 6 {
+    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 8 {
         return true;
     }
     false
@@ -192,6 +192,7 @@ pub async fn buy(
     taker_type: TakeType,
     line_datas: &[Kline],
     is_real_trading: bool,
+    eth_is_strong: bool,
 ) -> Result<(bool, f32), Box<dyn std::error::Error>> {
     let now = line_datas[359].open_time + 1000;
     match take_order_pair.get(&taker_type) {
@@ -242,10 +243,8 @@ pub async fn buy(
                     && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10
                 {
                     (true, "Positive income and held it for two hour，and price start increase")
-                } else if sell_reason == SellReason::TwoMiddleSignal_V2
-                    &&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 240].open_time > take_info.take_time
-                    && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 10{
-                    (true, "Positive income and held it for four hour，and price start increase")
+                }else if eth_is_strong {
+                    (true, "eth is strong")
                 } else {
                     (false, "")
                 };
@@ -263,10 +262,29 @@ pub async fn buy(
                             order_num += 1;
                         }
                     }
-                    //如果当前仍处于亏损状态，则就一直等待
-                    if total_raise_price >= -0.01 {
-                        return Ok((false,0.0));
+                    unsafe {
+                        if total_raise_price > MAX_PROFIT_LOSE_RATIO.1 {
+                            MAX_PROFIT_LOSE_RATIO = (now,total_raise_price);
+                            warn!("now {} market {},MAX_PROFIT_LOSE_RATIO {}",timestamp2date(now),taker_type.pair,MAX_PROFIT_LOSE_RATIO.1);
+                        }
+                        //超过7天没继续更新的强制更新
+                        if now > MAX_PROFIT_LOSE_RATIO.0 + 7 * 24 * 60 * 60 * 1000 {
+                            MAX_PROFIT_LOSE_RATIO = (now,0.0);
+                        }
                     }
+                    //如果当前仍处于亏损状态，则就一直等待
+                    let (_average_price,average_volume) = get_average_info(&line_datas[0..358]);
+                    let top_volume = take_info.top_bar.volume.to_f32();
+                    //处于亏损但是，处于前6个小时内或者交易量仍然没有萎靡的就继续持仓
+                    if eth_is_strong == false && total_raise_price >= -0.01 {
+                        if line_datas[0].open_time < take_info.take_time {
+                            return Ok((false, 0.0));
+                        }
+                        if average_volume.mul(40.0) > top_volume {
+                            return Ok((false, 0.0));
+                        }
+                    }
+
                     let first_open_time = take_infos.first().unwrap().take_time;
                     let spend_time = (now - first_open_time).div(24*60*60*1000);//day
                     //和多久之前的比较，比较多少根？

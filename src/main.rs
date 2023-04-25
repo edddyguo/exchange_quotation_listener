@@ -56,6 +56,7 @@ use strum::IntoEnumIterator;
 //监控所有开了永续合约的交易对
 
 type Pair = String;
+static mut MAX_PROFIT_LOSE_RATIO: (u64,f32) = (0,0.0f32);
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AvgPrice {
@@ -176,13 +177,13 @@ async fn try_get<DATA_TYPE: for<'a> Deserialize<'a>>(kline_url: String) -> Box<D
                             error.to_string(),
                             res_str
                         );
-                        std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
+                        std::thread::sleep(std::time::Duration::from_secs_f32(30.0));
                     }
                 }
             }
             Err(error) => {
                 warn!("reqwest get happened error {}", error.to_string());
-                std::thread::sleep(std::time::Duration::from_secs_f32(1.0));
+                std::thread::sleep(std::time::Duration::from_secs_f32(30.0));
             }
         }
     }
@@ -239,7 +240,7 @@ pub async fn excute_real_trading() {
                     pair: pair.symbol.clone(),
                     sell_reason: SellReason::from(effect.sell_reason.as_str()),
                 };
-                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true).await.unwrap();
+                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true,false).await.unwrap();
             }
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, true).await;
         }
@@ -284,7 +285,7 @@ pub async fn execute_back_testing(
                 };
                 // fixme：_is_took 是否已经不需要了？
                 let (_is_took, profit) =
-                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
+                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false,false)
                         .await
                         .unwrap();
                 *total_profit += profit;
@@ -377,6 +378,13 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
             index += 1;
 
             assert_eq!(bar.open_time, line_datas[359].open_time);
+            let eth_is_strong = if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.02
+                || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.03)
+            {
+                true
+            }else {
+                false
+            };
             for effect in all_reason_total_profit.iter_mut() {
                 let take_type = TakeType {
                     pair: pair.symbol.clone(),
@@ -384,7 +392,7 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
                 };
                 // fixme：间隔2小时之后的buy为最后一次，此时再统计盈利
                 let (_is_took, profit) =
-                    strategy::buy(&mut take_order_pair, take_type.clone(), &line_datas, false)
+                    strategy::buy(&mut take_order_pair, take_type.clone(), &line_datas, false,eth_is_strong)
                         .await
                         .unwrap();
                 effect.total_profit += profit;
@@ -410,11 +418,9 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
             }
 
 
-            /* if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.03
-                 || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.05)
-             {
+             if eth_is_strong {
                  continue;
-             }*/
+             }
 
 
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
@@ -477,7 +483,7 @@ pub async fn execute_back_testing3(year: u32, month: u8) -> Vec<StrategyEffect> 
                 };
                 // fixme：间隔2小时之后的buy为最后一次，此时再统计盈利
                 let (_is_took, profit) =
-                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false)
+                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false,false)
                         .await
                         .unwrap();
                 effect.total_profit += profit;
