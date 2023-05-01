@@ -324,8 +324,7 @@ pub async fn execute_back_testing(
 
 use market_cap_list::market_cap_list;
 pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEffect> {
-    let test1 = market_cap_list(150).await;
-    warn!("{:#?}",test1);
+
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
@@ -341,6 +340,11 @@ pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEf
             //StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;
+    let test1 = market_cap_list(150).await;
+    warn!("{:#?}",test1);
+
+    warn!("test3 {:#?}",test3);
+    panic!("");
     let eth_klines = load_history_data_by_pair(year, "ETHUSDT", 1).await;
     let mut profit_change: HashMap<SellReason, Vec<(u64, f32)>> = HashMap::new();
     for reason in SellReason::iter() {

@@ -60,7 +60,7 @@ pub struct Daum {
     #[serde(rename = "cmc_rank")]
     pub cmc_rank: i64,
     #[serde(rename = "self_reported_circulating_supply")]
-    pub self_reported_circulating_supply: Option<i64>,
+    pub self_reported_circulating_supply: Option<f64>,
     #[serde(rename = "self_reported_market_cap")]
     pub self_reported_market_cap: Option<f64>,
     #[serde(rename = "tvl_ratio")]
