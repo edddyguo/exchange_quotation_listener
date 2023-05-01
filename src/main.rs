@@ -17,6 +17,7 @@ mod order;
 mod strategy;
 mod utils;
 mod draw;
+mod market_cap_list;
 
 use crate::account::get_usdt_balance;
 use crate::bar::{
@@ -322,7 +323,7 @@ pub async fn execute_back_testing(
 }
 
 
-pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> {
+pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEffect> {
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
@@ -338,7 +339,7 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
             //StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;
-    let eth_klines = load_history_data_by_pair(year, "ETHUSDT", month).await;
+    let eth_klines = load_history_data_by_pair(year, "ETHUSDT", 1).await;
     let mut profit_change: HashMap<SellReason, Vec<(u64, f32)>> = HashMap::new();
     for reason in SellReason::iter() {
         if reason == AStrongSignal
@@ -352,14 +353,12 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
 
     for (index, pair) in all_pairs.iter().enumerate() {
         //for test recent kline
-        /*
-        if  !pair.symbol.contains("TUSDT") &&  !pair.symbol.contains("MUSDT") {
-           continue
-       }
-
-        if pair.symbol != "ZILUSDT" {
+        if pair.symbol.contains("GMTUSDT"){
             continue
         }
+
+
+        /*
         let kline_url = format!(
             "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
             pair.symbol.as_str(),
@@ -367,8 +366,13 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
         );
         let klines = try_get::<Vec<Kline>>(kline_url).await.to_vec();
         */
-        warn!("date({}-{}):start test index {} symbol {}", year,month,index,pair.symbol.as_str());
-        let klines = load_history_data_by_pair(year, &pair.symbol, month).await;
+        warn!("date({}-[{:?}]):start test index {} symbol {}", year,months,index,pair.symbol.as_str());
+        let mut klines = vec![];
+        for month in months.clone() {
+            let mut current_month = load_history_data_by_pair(year, &pair.symbol, month).await;
+            klines.append(&mut current_month);
+        }
+
         if klines.is_empty() {
             continue;
         }
@@ -378,13 +382,8 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
             index += 1;
 
             assert_eq!(bar.open_time, line_datas[359].open_time);
-            let eth_is_strong = if eth_klines[index + 350].open_price.to_f32() / eth_klines[index].open_price.to_f32() > 1.02
-                || (index >= 360 && eth_klines[index + 350].open_price.to_f32() / eth_klines[index - 350].open_price.to_f32() > 1.03)
-            {
-                true
-            }else {
-                false
-            };
+            let eth_is_strong = false;
+
             for effect in all_reason_total_profit.iter_mut() {
                 let take_type = TakeType {
                     pair: pair.symbol.clone(),
@@ -405,7 +404,7 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
                     } else {
                         effect.lose_txs += 1;
                     }
-                    info!("tmp:year {} month {} ,detail {:?}",year,month,effect);
+                    info!("tmp:year {} month [{:?}] ,detail {:?}",year,months,effect);
                     let date = line_datas[359].open_time.div(60 * 60 * 1000);
                     profit_change.get_mut(&take_type.sell_reason.clone()).unwrap().push((date, profit));
                 }
@@ -418,9 +417,9 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
             }
 
 
-             if eth_is_strong {
-                 continue;
-             }
+            if eth_is_strong {
+                continue;
+            }
 
 
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, false).await;
@@ -441,8 +440,8 @@ pub async fn execute_back_testing2(year: u32, month: u8) -> Vec<StrategyEffect> 
                 sum_profit += profit;
                 data[index].1 = sum_profit;
             }
-            warn!("reason {} year {} month {} ---{:?}",reason_str,year,month,data);
-            draw_profit_change(data, year, month, reason.into()).unwrap();
+            warn!("reason {} year {} months [{:?}] ---{:?}",reason_str,year,months,data);
+            //draw_profit_change(data, year, month, reason.into()).unwrap();
         }
     }
     //draw_profit_change(profit_change,year,month).unwrap();
@@ -627,20 +626,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2023u32..=2023u32 {
+            for year in 2021u32..=2021u32 {
                 let months = if year == 2023 {
-                    1..=3
+                    [1..=3].to_vec()
                 } else {
-                    1..=12
+                    [1..=3,4..=6,7..=9,10..=12].to_vec()
                 };
                 rayon::scope(|scope| {
                     for month in months {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
-                                let datas = execute_back_testing2(year, month).await;
+                                let month: Vec<u8> = month.collect();
+                                let datas = execute_back_testing2(year, month.clone()).await;
                                 for data in datas {
-                                    warn!("finally: year {} month {},detail {:?}",year,month,data);
+                                    warn!("finally: year {} month [{:?}],detail {:?}",year,month,data);
                                 }
                             });
                         });

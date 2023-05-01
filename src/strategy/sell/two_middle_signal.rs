@@ -8,7 +8,7 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::error::Error;
-use std::ops::{Div, Mul};
+use std::ops::{Div, Mul,Sub};
 
 pub struct TMS {}
 
@@ -55,16 +55,17 @@ impl TMS {
             "------: market {},shape_score {},volume_score {},recent_shape_score {}",
             pair_symbol, shape_score, volume_score, recent_shape_score
         );
-        if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 {
+        let take_info = take_order_pair.get_mut(&take_sell_type);
+        if shape_score >= 4 && volume_score >= 3 && recent_shape_score >= 6 || take_info.is_none(){
             let mut push_text = "".to_string();
-            let take_info = take_order_pair.get_mut(&take_sell_type);
             //二次拉升才下单,并且量大于2倍
-            if take_info.is_some()
-                && broken_line_datas[18].volume.to_f32().div(1.1)
-                > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
+            if take_info.is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == false && broken_line_datas[18].volume.to_f32().div(1.1) > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
+                || take_info.is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == true && broken_line_datas[18].volume.to_f32().div(1.1) > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32() &&  broken_line_datas[18].open_price.to_f32().div(1.50) > take_info.as_ref().unwrap().last().unwrap().top_bar.open_price.to_f32()
+                && broken_line_datas[18].open_time.sub(take_info.as_ref().unwrap().last().unwrap().top_bar.open_time) > 7 * 24 * 60 * 60 * 1000
+                || take_info.is_none()
             {
                 let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
-                if inc_ratio_distance < 1.2 {
+                if inc_ratio_distance < 1.2 && take_info.is_some(){
                     warn!(
                         "strategy2-{}-{}-deny: inc_ratio_distance {}",
                         pair_symbol,

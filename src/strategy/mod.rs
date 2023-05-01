@@ -54,9 +54,9 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         .to_f32();
     //最近2小时，交易量不能有大于准顶量1.5倍的
     for (index, bar) in line_datas[..358].iter().enumerate() {
-        if index <= 340 && bar.volume.to_f32().div(10.0) > line_datas[358].volume.to_f32() {
+        if index <= 340 && bar.volume.to_f32().div(100.0) > line_datas[358].volume.to_f32() {
             return false;
-        } else if index > 340 && bar.volume.to_f32().div(5.0) > line_datas[358].volume.to_f32() {
+        } else if index > 340 && bar.volume.to_f32().div(50.0) > line_datas[358].volume.to_f32() {
             return false;
         }
     }
@@ -81,7 +81,7 @@ async fn is_break_through_market(market: &str, line_datas: &[Kline]) -> bool {
         recent_price_increase_rate,
         recent_huge_volume_bars_num
     );
-    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 8 {
+    if recent_price_increase_rate >= INCREASE_PRICE_LEVEL2 && recent_huge_volume_bars_num >= 4 {
         return true;
     }
     false
@@ -112,13 +112,13 @@ pub async fn sell(
         sell_reason: SellReason::AVeryStrongSignal,
     }).is_some();
 
-/*    let tms_v2_exist = take_order_pair.get(&TakeType {
-        pair: pair_symbol.to_string(),
-        sell_reason: SellReason::TwoMiddleSignal_V2,
-    }).is_some();*/
+    /*    let tms_v2_exist = take_order_pair.get(&TakeType {
+            pair: pair_symbol.to_string(),
+            sell_reason: SellReason::TwoMiddleSignal_V2,
+        }).is_some();*/
 
 
-   let tcs_exist = take_order_pair.get(&TakeType {
+    let tcs_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::ThreeContinuousSignal,
     }).and_then(|x| Some(x.last().unwrap().is_took));;
@@ -127,7 +127,7 @@ pub async fn sell(
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::StartGoDown,
     }).is_some();
-    */
+     */
 
 
     let is_break = is_break_through_market(pair_symbol, &line_datas).await;
@@ -142,36 +142,44 @@ pub async fn sell(
 
     //todo: 将其中通用的计算逻辑拿出来
     //if !ass_exist && is_break {
+    /***
     if is_break {
             ASS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
+    **/
     //if !avss_exist && is_break{
+    /***
     if is_break{
         AVSS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
 
+    ***/
 
+    TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+    /***
     if tms_exist.is_none() && is_break
         //|| tms_exist.is_some() && tms_exist.unwrap() == false
         || tms_exist.is_some()
     {
         TMS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
-/*
-    if !tms_v2_exist && is_break
-        || tms_v2_exist
-    {
-        TMS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
-    }
-*/
+    */
+    /*
+        if !tms_v2_exist && is_break
+            || tms_v2_exist
+        {
+            TMS_V2::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
+        }
+    */
 
+    /***
     if tcs_exist.is_none() && is_break
         //|| tcs_exist.is_some() && tcs_exist.unwrap() == false
         || tcs_exist.is_some()
     {
         TCS::condition_passed(take_order_pair, line_datas, pair, taker_amount, price, is_real_trading).await?;
     }
-
+    ***/
 
     /*
    if !sgd_exist && is_break
@@ -213,16 +221,16 @@ pub async fn buy(
                     line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 1].open_time - take_info.take_time;
                 //三种情况平仓1、顶后三根有小于五分之一的，2，20根之后看情况止盈利
                 let (can_buy, buy_reason) = if
-                    //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
-                    //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
-                    //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
-/*                line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 40].open_time > take_info.take_time
-                    && signal_bal.is_strong_raise()
-                    && signal_bal.volume.to_f32() * 4.0 > take_info.top_bar.volume.to_f32()
-                    && signal_bal.volume.to_f32() / 6.0 > remote_average.1
-                    && signal_bal.close_price.to_f32() < recent_average.0*/
+                //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].open_time <= take_info.take_time + 1000 * 60 * 3 //顶后三根
+                //&& line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].volume.to_f32() <= take_info.top_bar.volume.to_f32().div(6.0)
+                //line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price > take_info.top_bar.close_price
+                /*                line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 40].open_time > take_info.take_time
+                                    && signal_bal.is_strong_raise()
+                                    && signal_bal.volume.to_f32() * 4.0 > take_info.top_bar.volume.to_f32()
+                                    && signal_bal.volume.to_f32() / 6.0 > remote_average.1
+                                    && signal_bal.close_price.to_f32() < recent_average.0*/
                 //(sell_reason == SellReason::AVeryStrongSignal || sell_reason == SellReason::AStrongSignal)
-                  //  && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price.to_f32() >= take_info.top_bar.high_price.to_f32()
+                //  && line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 2].close_price.to_f32() >= take_info.top_bar.high_price.to_f32()
                 sell_reason == SellReason::StartGoDown && get_raise_bar_num(&line_datas[KLINE_NUM_FOR_FIND_SIGNAL - 30..]) >= 15
                 {
                     (true, "too few volume in last 3 bars")
@@ -253,6 +261,7 @@ pub async fn buy(
                     let mut total_raise_price = 0.0f32;
                     let mut order_num = 0u32;
                     let mut profit_detail = Vec::new();
+                    /***
                     for take_info in take_infos {
                         if take_info.is_took == true{
                             total_amount += take_info.amount;
@@ -262,13 +271,28 @@ pub async fn buy(
                             order_num += 1;
                         }
                     }
+                    ***/
+                    let mut index = 0usize;
+                    let take_amount_time = vec![1.0f32, 2.0, 4.0, 8.0,16.0 ,24.0,48.0,96.0,96.0,96.0,96.0,96.0];
+
+                    for (_index,take_info) in take_infos.iter().enumerate() {
+                        if take_info.is_took == true{
+                            total_amount += take_info.amount;
+                            let current_profit = (current_price - take_info.sell_price).div(take_info.sell_price) * take_amount_time[index];
+                            total_raise_price += current_profit;
+                            profit_detail.push(current_profit);
+                            order_num += 1;
+                            index += 1;
+                        }
+                    }
+
                     unsafe {
                         if total_raise_price > MAX_PROFIT_LOSE_RATIO.1 {
                             MAX_PROFIT_LOSE_RATIO = (now,total_raise_price);
                             warn!("now {} market {},MAX_PROFIT_LOSE_RATIO {}",timestamp2date(now),taker_type.pair,MAX_PROFIT_LOSE_RATIO.1);
                         }
                         //超过7天没继续更新的强制更新
-                        if now > MAX_PROFIT_LOSE_RATIO.0 + 7 * 24 * 60 * 60 * 1000 {
+                        if now > MAX_PROFIT_LOSE_RATIO.0 + 7 * 24 * 60 * 60 * 1000 &&  now < MAX_PROFIT_LOSE_RATIO.0 + 14 * 24 * 60 * 60 * 1000{
                             MAX_PROFIT_LOSE_RATIO = (now,0.0);
                         }
                     }
@@ -276,13 +300,16 @@ pub async fn buy(
                     let (_average_price,average_volume) = get_average_info(&line_datas[0..358]);
                     let top_volume = take_info.top_bar.volume.to_f32();
                     //处于亏损但是，处于前6个小时内或者交易量仍然没有萎靡的就继续持仓
-                    if eth_is_strong == false && total_raise_price >= -0.01 {
+                    if eth_is_strong == false && total_raise_price >= -0.05 {
+                        /***
                         if line_datas[0].open_time < take_info.take_time {
                             return Ok((false, 0.0));
                         }
-                        if average_volume.mul(40.0) > top_volume {
+                        if average_volume.mul(80.0) > top_volume {
                             return Ok((false, 0.0));
                         }
+                        ***/
+                        return Ok((false, 0.0));
                     }
 
                     let first_open_time = take_infos.first().unwrap().take_time;
@@ -300,7 +327,7 @@ pub async fn buy(
                             total_amount,
                             "BUY".to_string(),
                         )
-                        .await;
+                            .await;
                         notify_lark(push_text.clone()).await?;
                     }
                     //info!("data0001: now {} market {},detail {:?},sell_info {:?}",timestamp2date(now),taker_type.pair,push_text,take_infos);
