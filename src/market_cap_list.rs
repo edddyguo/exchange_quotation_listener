@@ -13,7 +13,6 @@ use std::ops::Deref;
 //use serde_derive::Deserialize;
 //use serde_derive::Serialize;
 //use serde_json::Value;
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Root {
@@ -28,11 +27,11 @@ pub struct Status {
     #[serde(rename = "error_code")]
     pub error_code: i64,
     #[serde(rename = "error_message")]
-    pub error_message: String,
+    pub error_message: Option<String>,
     pub elapsed: i64,
     #[serde(rename = "credit_count")]
     pub credit_count: i64,
-    pub notice: String,
+    pub notice: Option<String>,
     #[serde(rename = "total_count")]
     pub total_count: i64,
 }
@@ -61,11 +60,11 @@ pub struct Daum {
     #[serde(rename = "cmc_rank")]
     pub cmc_rank: i64,
     #[serde(rename = "self_reported_circulating_supply")]
-    pub self_reported_circulating_supply: Option<u64>,
+    pub self_reported_circulating_supply: Option<i64>,
     #[serde(rename = "self_reported_market_cap")]
-    pub self_reported_market_cap: Option<u64>,
+    pub self_reported_market_cap: Option<f64>,
     #[serde(rename = "tvl_ratio")]
-    pub tvl_ratio: Option<f64>,
+    pub tvl_ratio:Option<f64>,
     #[serde(rename = "last_updated")]
     pub last_updated: String,
     pub quote: Quote,
@@ -121,11 +120,10 @@ pub struct Usd {
 }
 
 
-
 pub async fn market_cap_list(limit: u32) -> Vec<String> {
     let mut headers = HeaderMap::new();
     headers.insert(
-        HeaderName::from_static("X-CMC_PRO_API_KEY"),
+        HeaderName::from_static("x-cmc_pro_api_key"),
         HeaderValue::from_static("92e6f509-4ef9-4ee1-8e54-4e3a732df2e9"),
     );
 
@@ -137,6 +135,7 @@ pub async fn market_cap_list(limit: u32) -> Vec<String> {
     let client = reqwest::Client::new();
     let res = client
         .get(url)
+        .headers(headers)
         .send()
         .await
         .unwrap()

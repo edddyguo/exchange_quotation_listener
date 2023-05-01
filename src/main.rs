@@ -322,8 +322,10 @@ pub async fn execute_back_testing(
     return all_reason_total_profit;
 }
 
-
+use market_cap_list::market_cap_list;
 pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEffect> {
+    let test1 = market_cap_list(150).await;
+    warn!("{:#?}",test1);
     let balance = 10.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
