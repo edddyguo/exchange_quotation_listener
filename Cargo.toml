@@ -23,6 +23,8 @@ async-trait = "0.1.66"
 plotters = "0.3.4"
 strum_macros = "0.24.3"
 strum = "0.24.1"
+lazy_static = "1.4.0"
+
 
 [features]
 json = ["serde_json"]
