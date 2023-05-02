@@ -342,9 +342,9 @@ pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEf
             //StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;
-    let first_month = format!("{}-{}",year,months.first().unwrap());
+    let first_month = format!("{}-{:02}",year,months.first().unwrap());
     let market_cap_list = get_market_cap_list_by_month(&first_month);
-    let all_pairs: Vec<Symbol> = all_pairs.into_iter().filter(|x| market_cap_list.contains(&x.symbol.as_str())).collect();
+    let all_pairs: Vec<Symbol> = all_pairs.into_iter().filter(|x| market_cap_list.contains(&x.symbol)).collect();
     warn!("{}-{} all_pairs {}",year,first_month,all_pairs.len());
 
     //panic!("");
@@ -636,17 +636,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("back_testing2");
             for year in 2022u32..=2023u32 {
                 let months = if year == 2023 {
-                    [1..=3].to_vec()
+                    1..=3
                 } else {
-                    [1..=4].to_vec()
+                    1..=4
                 };
                 rayon::scope(|scope| {
                     for month in months {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
-                                let month: Vec<u8> = month.collect();
-                                let datas = execute_back_testing2(year, month.clone()).await;
+                                //let month: Vec<u8> = month.collect();
+                                let datas = execute_back_testing2(year, vec![month]).await;
                                 for data in datas {
                                     warn!("finally: year {} month [{:?}],detail {:?}",year,month,data);
                                 }

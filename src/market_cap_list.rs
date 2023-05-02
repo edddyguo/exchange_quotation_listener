@@ -797,7 +797,10 @@ pub async fn market_cap_list(limit: u32) -> Vec<String> {
         .unwrap();
     res.data.iter().map(|x| format!("{}USDT", x.symbol)).collect()
 }
-
-pub fn get_market_cap_list_by_month(month: &str) -> Vec<&str> {
-    MY_MAP.get(month).unwrap().to_owned()
+pub fn get_market_cap_list_by_month(month: &str) -> Vec<String> {
+    MY_MAP.get(month)
+        .unwrap()
+        .iter()
+        .map(|&symbol| symbol.to_string() + "USDT")
+        .collect()
 }
