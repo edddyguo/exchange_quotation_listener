@@ -638,7 +638,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let months = if year == 2023 {
                     1..=3
                 } else {
-                    1..=4
+                    1..=12
                 };
                 rayon::scope(|scope| {
                     for month in months {
