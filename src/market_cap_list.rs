@@ -4417,6 +4417,6 @@ pub fn get_market_cap_list_by_month(month: &str) -> Vec<String> {
         .unwrap()
         .iter()
         .map(|&symbol| symbol.to_string() + "USDT")
-        .take(100)
+        .take(150)
         .collect()
 }

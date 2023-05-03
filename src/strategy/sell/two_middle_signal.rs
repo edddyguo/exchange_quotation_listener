@@ -60,8 +60,8 @@ impl TMS {
             let mut push_text = "".to_string();
             //二次拉升才下单,并且量大于2倍
             if take_info.is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == false && broken_line_datas[18].volume.to_f32().div(1.1) > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32()
-                || take_info.is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == true && broken_line_datas[18].volume.to_f32().div(1.1) > take_info.as_ref().unwrap().last().unwrap().top_bar.volume.to_f32() &&  broken_line_datas[18].open_price.to_f32().div(1.20) > take_info.as_ref().unwrap().last().unwrap().top_bar.open_price.to_f32()
-                && broken_line_datas[18].open_time.sub(take_info.as_ref().unwrap().last().unwrap().top_bar.open_time) > 4 * 24 * 60 * 60 * 1000
+                || take_info.is_some() && take_info.as_ref().unwrap().last().unwrap().is_took == true &&  broken_line_datas[18].open_price.to_f32().div(1.20) > take_info.as_ref().unwrap().last().unwrap().top_bar.open_price.to_f32()
+                && broken_line_datas[18].open_time.sub(take_info.as_ref().unwrap().last().unwrap().top_bar.open_time) > 16 * 24 * 60 * 60 * 1000
                 || take_info.is_none()
             {
                 let inc_ratio_distance = ten_minutes_inc_ratio.div(half_hour_inc_ratio);
