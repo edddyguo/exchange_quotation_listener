@@ -634,19 +634,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("back_testing2", _sub_matches)) => {
             println!("back_testing2");
-            for year in 2022u32..=2023u32 {
+            /***
+        for year in 2022u32..=2023u32 {
+            let months = if year == 2023 {
+                1..=3
+            } else {
+                1..=12
+            };
+            rayon::scope(|scope| {
+                for month in months {
+                    scope.spawn(move |_| {
+                        let rt = Runtime::new().unwrap();
+                        rt.block_on(async move {
+                            //let month: Vec<u8> = month.collect();
+                            let datas = execute_back_testing2(year, vec![month]).await;
+                            for data in datas {
+                                warn!("finally: year {} month [{:?}],detail {:?}",year,month,data);
+                            }
+                        });
+                    });
+                }
+            });
+        }
+        */
+            for year in 2021u32..=2021u32 {
                 let months = if year == 2023 {
-                    1..=3
+                    [1..=3].to_vec()
                 } else {
-                    1..=12
+                    [1..=3,4..=6,7..=9,10..=12].to_vec()
                 };
                 rayon::scope(|scope| {
                     for month in months {
                         scope.spawn(move |_| {
                             let rt = Runtime::new().unwrap();
                             rt.block_on(async move {
-                                //let month: Vec<u8> = month.collect();
-                                let datas = execute_back_testing2(year, vec![month]).await;
+                                let month: Vec<u8> = month.collect();
+                                let datas = execute_back_testing2(year, month.clone()).await;
                                 for data in datas {
                                     warn!("finally: year {} month [{:?}],detail {:?}",year,month,data);
                                 }
