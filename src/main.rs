@@ -217,6 +217,9 @@ async fn notify_lark(pushed_msg: String) -> Result<(), Box<dyn std::error::Error
 
 pub async fn excute_real_trading() {
     let all_pairs = list_all_pair().await;
+    let market_cap_list = get_market_cap_list_by_month("2023-05");
+    let all_pairs: Vec<Symbol> = all_pairs.into_iter().filter(|x| market_cap_list.contains(&x.symbol)).collect();
+    warn!("all_pairs {}",all_pairs.len());
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     let mut times = 0u64;
     loop {
@@ -229,12 +232,13 @@ pub async fn excute_real_trading() {
             );
             let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
             let mut all_reason_total_profit: Vec<StrategyEffect> =
-                vec![StrategyEffect::new(AStrongSignal),
+                vec![
+                    //StrategyEffect::new(AStrongSignal),
                      //StrategyEffect::new(AStrongSignal_V2),
                      StrategyEffect::new(TwoMiddleSignal),
                      //StrategyEffect::new(TwoMiddleSignal_V2),
                      //StrategyEffect::new(ThreeContinuousSignal),
-                     StrategyEffect::new(AVeryStrongSignal),
+                     //StrategyEffect::new(AVeryStrongSignal),
                      //StrategyEffect::new(AVeryStrongSignal_V2),
                 ];
             for effect in all_reason_total_profit {
@@ -327,7 +331,7 @@ use market_cap_list::market_cap_list;
 use crate::market_cap_list::get_market_cap_list_by_month;
 
 pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEffect> {
-    let balance = 10.0;
+    let balance = 500.0;
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     ///reason,total_profit,txs
     let mut all_reason_total_profit: Vec<StrategyEffect> =

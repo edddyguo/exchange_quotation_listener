@@ -99,6 +99,8 @@ pub async fn list_all_pair() -> Vec<Symbol> {
         .iter()
         .filter(|x| !x.symbol.contains("_"))
         .filter(|x| !x.symbol.contains("BUSD"))
+        .filter(|x| !x.symbol.contains("USDC"))
+        .filter(|x| !x.symbol.contains("BLUR"))
         .filter(|x| !x.symbol.contains("1000"))
         .filter(|x| !x.symbol.contains("331"))
         .filter(|x| !x.symbol.contains("DEFI"))
