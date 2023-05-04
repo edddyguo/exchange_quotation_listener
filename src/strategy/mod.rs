@@ -97,10 +97,10 @@ pub async fn sell(
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let pair_symbol = pair.symbol.as_str();
 
-    let tms_exist = take_order_pair.get(&TakeType {
+    let tms_len = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
         sell_reason: SellReason::TwoMiddleSignal,
-    }).and_then(|x| Some(x.last().unwrap().is_took));
+    }).map_or(0,|x| x.len());
 
     let ass_exist = take_order_pair.get(&TakeType {
         pair: pair_symbol.to_string(),
@@ -134,11 +134,13 @@ pub async fn sell(
 
     //以倒数第二根的open，作为信号发现价格，以倒数第一根的open为实际下单价格
     let price = line_datas[359].open_price.parse::<f32>().unwrap();
-    let taker_amount = balance
+    let mut taker_amount = balance
         .mul(20.0)
         .div(1000.0)
         .div(price)
         .to_fix(pair.quantity_precision as u32);
+    let take_amount_time = vec![1.0f32, 2.0, 4.0, 8.0,16.0 ,24.0,48.0,96.0,96.0,96.0,96.0,96.0];
+    taker_amount *= take_amount_time[tms_len];
 
     //todo: 将其中通用的计算逻辑拿出来
     //if !ass_exist && is_break {

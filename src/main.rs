@@ -219,7 +219,7 @@ pub async fn excute_real_trading() {
     let all_pairs = list_all_pair().await;
     let market_cap_list = get_market_cap_list_by_month("2023-05");
     let all_pairs: Vec<Symbol> = all_pairs.into_iter().filter(|x| market_cap_list.contains(&x.symbol)).collect();
-    warn!("all_pairs {}",all_pairs.len());
+    warn!("all_pairs_len {}",all_pairs.len());
     let mut take_order_pair: HashMap<TakeType, Vec<TakeOrderInfo>> = HashMap::new();
     let mut times = 0u64;
     loop {
