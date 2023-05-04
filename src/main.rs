@@ -3,8 +3,10 @@
 #![feature(core_intrinsics)]
 
 extern crate core;
-#[macro_use] extern crate log;
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate lazy_static;
 
 
 mod account;
@@ -58,7 +60,8 @@ use strum::IntoEnumIterator;
 //监控所有开了永续合约的交易对
 
 type Pair = String;
-static mut MAX_PROFIT_LOSE_RATIO: (u64,f32) = (0,0.0f32);
+
+static mut MAX_PROFIT_LOSE_RATIO: (u64, f32) = (0, 0.0f32);
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AvgPrice {
@@ -234,19 +237,19 @@ pub async fn excute_real_trading() {
             let mut all_reason_total_profit: Vec<StrategyEffect> =
                 vec![
                     //StrategyEffect::new(AStrongSignal),
-                     //StrategyEffect::new(AStrongSignal_V2),
-                     StrategyEffect::new(TwoMiddleSignal),
-                     //StrategyEffect::new(TwoMiddleSignal_V2),
-                     //StrategyEffect::new(ThreeContinuousSignal),
-                     //StrategyEffect::new(AVeryStrongSignal),
-                     //StrategyEffect::new(AVeryStrongSignal_V2),
+                    //StrategyEffect::new(AStrongSignal_V2),
+                    StrategyEffect::new(TwoMiddleSignal),
+                    //StrategyEffect::new(TwoMiddleSignal_V2),
+                    //StrategyEffect::new(ThreeContinuousSignal),
+                    //StrategyEffect::new(AVeryStrongSignal),
+                    //StrategyEffect::new(AVeryStrongSignal_V2),
                 ];
             for effect in all_reason_total_profit {
                 let taker_type = TakeType {
                     pair: pair.symbol.clone(),
                     sell_reason: SellReason::from(effect.sell_reason.as_str()),
                 };
-                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true,false).await.unwrap();
+                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true, false).await.unwrap();
             }
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, true).await;
         }
@@ -274,6 +277,12 @@ pub async fn execute_back_testing(
     //let mut all_reason_total_profit: Vec<(SellReason, f32,u32)> = vec![(AStrongSignal, 0.0,0)];
     let eth_klines = load_history_data_by_pair(year, "ETHUSDT", month).await;
     for (pair, klines) in history_data {
+        if pair.symbol.contains("BTCUSDT")
+            || pair.symbol.contains("SOLUSDT")
+        {
+            continue;
+        }
+
         warn!(
             "start test {},klines size {}",
             pair.symbol.as_str(),
@@ -291,7 +300,7 @@ pub async fn execute_back_testing(
                 };
                 // fixme：_is_took 是否已经不需要了？
                 let (_is_took, profit) =
-                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false,false)
+                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false, false)
                         .await
                         .unwrap();
                 *total_profit += profit;
@@ -346,7 +355,7 @@ pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEf
             //StrategyEffect::new(StartGoDown),
         ];
     let all_pairs = list_all_pair().await;
-    let first_month = format!("{}-{:02}",year,months.first().unwrap());
+    let first_month = format!("{}-{:02}", year, months.first().unwrap());
     let market_cap_list = get_market_cap_list_by_month(&first_month);
     let all_pairs: Vec<Symbol> = all_pairs.into_iter().filter(|x| market_cap_list.contains(&x.symbol)).collect();
     warn!("{}-{} all_pairs {}",year,first_month,all_pairs.len());
@@ -390,7 +399,6 @@ pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEf
         }
         let mut index = 0;
         for bar in &klines[359..] {
-
             let line_datas = &klines[index..(index + 360)];
             index += 1;
 
@@ -404,7 +412,7 @@ pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEf
                 };
                 // fixme：间隔2小时之后的buy为最后一次，此时再统计盈利
                 let (_is_took, profit) =
-                    strategy::buy(&mut take_order_pair, take_type.clone(), &line_datas, false,eth_is_strong)
+                    strategy::buy(&mut take_order_pair, take_type.clone(), &line_datas, false, eth_is_strong)
                         .await
                         .unwrap();
                 effect.total_profit += profit;
@@ -446,9 +454,9 @@ pub async fn execute_back_testing2(year: u32, months: Vec<u8>) -> Vec<StrategyEf
         {
             let reason_str: &str = reason.clone().into();
             let mut data = profit_change.get(&reason).unwrap().to_owned();
-            data.sort_by(|a,b| a.0.partial_cmp(&b.0).unwrap());
+            data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
             let mut sum_profit = 0f32;
-            for (index,(_,profit)) in data.clone().iter().enumerate() {
+            for (index, (_, profit)) in data.clone().iter().enumerate() {
                 sum_profit += profit;
                 data[index].1 = sum_profit;
             }
@@ -494,7 +502,7 @@ pub async fn execute_back_testing3(year: u32, month: u8) -> Vec<StrategyEffect> 
                 };
                 // fixme：间隔2小时之后的buy为最后一次，此时再统计盈利
                 let (_is_took, profit) =
-                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false,false)
+                    strategy::buy(&mut take_order_pair, take_type, &line_datas, false, false)
                         .await
                         .unwrap();
                 effect.total_profit += profit;
@@ -665,7 +673,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let months = if year == 2023 {
                     [1..=3].to_vec()
                 } else {
-                    [1..=3,4..=6,7..=9,10..=12].to_vec()
+                    [1..=3, 4..=6, 7..=9, 10..=12].to_vec()
                 };
                 rayon::scope(|scope| {
                     for month in months {
