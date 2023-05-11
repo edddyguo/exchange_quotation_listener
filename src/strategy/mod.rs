@@ -136,7 +136,8 @@ pub async fn sell(
     let price = line_datas[359].open_price.parse::<f32>().unwrap();
     let mut taker_amount = balance
         .mul(20.0)
-        .div(1000.0)
+        //.div(1000.0)
+        .div(500.0)
         .div(price)
         .to_fix(pair.quantity_precision as u32);
     let take_amount_time = vec![1.0f32, 2.0, 4.0, 8.0,16.0 ,24.0,48.0,96.0,96.0,96.0,96.0,96.0];
