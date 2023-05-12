@@ -17,3 +17,11 @@ buy
 2、中期交易量萎缩+上扬的
 3、
 
+
+常用cmd
+```
+cat forever_7_top_150_wait_6h_3month_2022_2023.log |grep  month |grep -v tmp|awk -F "finally" '{print $2}'|grep Tw
+cat forever_7_top_150_wait_6h_3month_2022_2023.log|grep MAX|grep "O 3"|grep -v "O 3\."
+cat 1.txt |grep '\$' -B1|grep -E '^[A-Z]+$' > 2022_05.txt;echo > 1.txt
+```
+
