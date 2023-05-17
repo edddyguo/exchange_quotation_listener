@@ -51,6 +51,8 @@ use std::error::Error;
 use std::intrinsics::atomic_cxchg_release_seqcst;
 use std::ops::{Deref, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
+use rayon::iter::IndexedParallelIterator;
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use tokio::runtime::Runtime;
 use crate::draw::draw_profit_change;
 use crate::SellReason::{AStrongSignal_V2, AVeryStrongSignal, AVeryStrongSignal_V2, SequentialTakeOrder, StartGoDown, TwoMiddleSignal_V2};
@@ -228,32 +230,40 @@ pub async fn excute_real_trading() {
     let mut times = 0u64;
     loop {
         let balance = get_usdt_balance().await;
+        let mut current_kline: HashMap<TakeType, Vec<Kline>> = HashMap::new();
+        let mut current_kline = Arc::new(RwLock::new(current_kline));
+        all_pairs.clone().into_par_iter().for_each(|pair| {
+            let current_kline = current_kline.clone();
+            let taker_type = TakeType {
+                pair: pair.symbol.clone(),
+                sell_reason: TwoMiddleSignal,
+            };
+
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async move{
+                let kline_url = format!(
+                    "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
+                    pair.symbol.as_str(),
+                    KLINE_NUM_FOR_FIND_SIGNAL
+                );
+                let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
+                current_kline.write().unwrap().insert(taker_type,line_datas);
+            });
+
+        });
+        let current_kline = current_kline.clone().read().unwrap().deref().to_owned();
+
+
         for (index, pair) in all_pairs.clone().into_iter().enumerate() {
-            let kline_url = format!(
-                "https://api.binance.com/api/v3/klines?symbol={}&interval=1m&limit={}",
-                pair.symbol.as_str(),
-                KLINE_NUM_FOR_FIND_SIGNAL
-            );
-            let line_datas = try_get::<Vec<Kline>>(kline_url).await.to_vec();
-            let mut all_reason_total_profit: Vec<StrategyEffect> =
-                vec![
-                    //StrategyEffect::new(AStrongSignal),
-                    //StrategyEffect::new(AStrongSignal_V2),
-                    StrategyEffect::new(TwoMiddleSignal),
-                    //StrategyEffect::new(TwoMiddleSignal_V2),
-                    //StrategyEffect::new(ThreeContinuousSignal),
-                    //StrategyEffect::new(AVeryStrongSignal),
-                    //StrategyEffect::new(AVeryStrongSignal_V2),
-                ];
-            for effect in all_reason_total_profit {
-                let taker_type = TakeType {
-                    pair: pair.symbol.clone(),
-                    sell_reason: SellReason::from(effect.sell_reason.as_str()),
-                };
-                let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true, false).await.unwrap();
-            }
+            let taker_type = TakeType {
+                pair: pair.symbol.clone(),
+                sell_reason: TwoMiddleSignal,
+            };
+            let line_datas = current_kline.get(&taker_type).unwrap();
+            let _ = strategy::buy(&mut take_order_pair, taker_type, &line_datas, true, false).await.unwrap();
             let _ = strategy::sell(&mut take_order_pair, &line_datas, &pair, balance, true).await;
         }
+
         //严格等待到下一分钟
         let distance_next_minute_time = 60000 - get_unix_timestamp_ms() % 60000;
         std::thread::sleep(std::time::Duration::from_millis(distance_next_minute_time as u64 + 1000u64));
@@ -699,22 +709,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 for data in datas {
                                     warn!("finally: month {},detail {:?}",month,data);
                                 }
-                            });
-                        });
-                    }
-                });
-            }
-        }
-        //连续开空单的尝试：希望统一开空逻辑：暂时失败
-        Some(("back_testing4", _sub_matches)) => {
-            println!("back_testing4");
-            for year in 2020..2023 {
-                rayon::scope(|scope| {
-                    for month in 1..=12 {
-                        scope.spawn(move |_| {
-                            let rt = Runtime::new().unwrap();
-                            rt.block_on(async move {
-                                execute_back_testing4(year, month).await;
                             });
                         });
                     }
