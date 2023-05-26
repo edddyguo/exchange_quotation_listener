@@ -49,6 +49,7 @@ pub async fn take_order(symbol: String, amount: f32, side: String) {
         != 200
     {
         warn!("request failed: {} ", url);
+        std::thread::sleep(std::time::Duration::from_secs_f32(10.0));
     }
     println!("take order OK: {}", url);
     //todo: 下单结果判断
